@@ -973,19 +973,22 @@ function renderChart(R){
   const v=VEI[ST.focus],NP=v.sondas;
   const W=Math.max(360,box.clientWidth||900),H=380,m={l:48,r:hasComp()?124:92,t:12,b:34},pw=W-m.l-m.r,ph=H-m.t-m.b;
   const GAPW=40;let off=0;const segs=[];
-  for(const a of trips){const t=a.t,span=t.tm[t.tm.length-1]-t.tm[0]+STEP;segs.push({a,off,span});off+=span+GAPW;}
+  for(const a of trips){const t=a.t,o=t.full?t.day*1440:t.tm[0],span=t.full?1440:t.tm[t.tm.length-1]-t.tm[0]+STEP;segs.push({a,off,span,o});off+=span+GAPW;}
   const total=off-GAPW;
   let lo=Infinity,hi=-Infinity;
   for(const s of segs){const t=s.a.t;for(let p=0;p<NP;p++)for(let i=0;i<t.tm.length;i++){const x=t.s[p][i];if(x<lo)lo=x;if(x>hi)hi=x;}for(const q of chartRules(s.a,NP)){lo=Math.min(lo,q.min);hi=Math.max(hi,q.max);}}
   const step=niceStep(hi-lo);lo=Math.floor((lo-step*.3)/step)*step;hi=Math.ceil((hi+step*.3)/step)*step;
-  const X=(s,m_)=>m.l+(s.off+(m_-s.a.t.tm[0]))/total*pw, Y=val=>m.t+(hi-val)/(hi-lo)*ph;
+  const X=(s,m_)=>m.l+(s.off+(m_-s.o))/total*pw, Y=val=>m.t+(hi-val)/(hi-lo)*ph;
   let g='';
   for(let val=lo;val<=hi+1e-9;val+=step)g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(val)}" y2="${Y(val)}" stroke="var(--line)"/><text x="${m.l-8}" y="${Y(val)+4}" text-anchor="end">${Math.round(val*10)/10}</text>`;
   g+=`<text x="12" y="${m.t+ph/2}" transform="rotate(-90 12 ${m.t+ph/2})" text-anchor="middle">Temperatura (°C)</text>`;
   const multiDay=segs.length>1, segW=pw/segs.length, every=Math.max(1,Math.ceil(34/segW));
-  segs.forEach((s,si)=>{const t=s.a.t,x0=X(s,t.tm[0]),x1=X(s,t.tm[0]+s.span),r=s.a.rule;
+  segs.forEach((s,si)=>{const t=s.a.t,x0=X(s,s.o),x1=X(s,s.o+s.span),r=s.a.rule;
     const CR=chartRules(s.a,NP);for(const q of CR)g+=`<rect x="${x0}" y="${Y(q.max)}" width="${x1-x0}" height="${Y(q.min)-Y(q.max)}" fill="${q.fill}"/>`;
     if(!shAll())for(let i=0;i<t.tm.length;i++)if(!shOn(t.tm[i])){const xa=X(s,t.tm[i]),xb=X(s,i+1<t.tm.length?t.tm[i+1]:t.tm[i]+STEP);g+=`<rect x="${xa}" y="${m.t}" width="${Math.max(1,xb-xa)}" height="${ph}" fill="var(--ink3)" opacity=".28"/>`;}
+    if(t.full){const xa=X(s,t.tm[0]),xb=X(s,t.tm[t.tm.length-1]+STEP);
+      if(xa-x0>1)g+=`<rect x="${x0}" y="${m.t}" width="${xa-x0}" height="${ph}" fill="var(--ink3)" opacity=".15"/>`;
+      if(x1-xb>1)g+=`<rect x="${xb}" y="${m.t}" width="${x1-xb}" height="${ph}" fill="var(--ink3)" opacity=".15"/>`;}
     for(const e of s.a.exc){const xa=X(s,e.start),xb=X(s,e.end);g+=`<rect x="${xa}" y="${m.t}" width="${Math.max(2,xb-xa)}" height="${ph}" fill="var(--crit)" opacity=".13"/>`;}
     for(let i=0;i<t.tm.length-1;i++){if(t.tm[i+1]-t.tm[i]>CFG.gap){const xa=X(s,t.tm[i]),xb=X(s,t.tm[i+1]);g+=`<rect x="${xa}" y="${m.t}" width="${xb-xa}" height="${ph}" fill="var(--ink3)" opacity=".15"/>`;}}
     for(let i=0;i<t.tm.length;i++)if(t.door[i])g+=`<rect x="${X(s,t.tm[i])-1.5}" y="${m.t+ph-7}" width="${Math.max(3,STEP/total*pw)}" height="7" rx="2" fill="var(--warn)"/>`;
@@ -996,7 +999,7 @@ function renderChart(R){
       g+=`<path d="${d}" fill="none" stroke="var(--p${p+1})" stroke-width="${p===0?2:1.6}" ${PDASH[p]?`stroke-dasharray="${PDASH[p]}"`:''} opacity="${ST.pr.has(String(p))?1:.22}" stroke-linejoin="round"/>`;}
     if(multiDay){if(si%every===0)g+=`<text x="${(x0+x1)/2}" y="${H-12}" text-anchor="middle">${fmtD(t.day)}</text>`;}
   });
-  if(!multiDay){const s=segs[0];for(let m_=Math.ceil(s.a.t.tm[0]/60)*60;m_<s.a.t.tm[0]+s.span;m_+=60){const x=X(s,m_);g+=`<line x1="${x}" x2="${x}" y1="${m.t+ph}" y2="${m.t+ph+4}" stroke="var(--ink3)"/><text x="${x}" y="${H-12}" text-anchor="middle">${fmtT(m_%1440)}</text>`;}}
+  if(!multiDay){const s=segs[0];for(let m_=Math.ceil(s.o/60)*60;m_<s.o+s.span;m_+=60){const x=X(s,m_);g+=`<line x1="${x}" x2="${x}" y1="${m.t+ph}" y2="${m.t+ph+4}" stroke="var(--ink3)"/><text x="${x}" y="${H-12}" text-anchor="middle">${fmtT(m_%1440)}</text>`;}}
   for(const q of chartRules(segs[segs.length-1].a,NP)){
     g+=`<text x="${W-m.r+6}" y="${Y(q.max)+4}" style="fill:var(--crit);font-weight:700">${q.lab}máx ${q.max>0?'+':''}${q.max} °C</text><text x="${W-m.r+6}" y="${Y(q.min)+4}" style="fill:var(--s1);font-weight:700">${q.lab}mín ${q.min>0?'+':''}${q.min} °C</text>`;}
   g+=`<line id="xh" x1="0" x2="0" y1="${m.t}" y2="${m.t+ph}" stroke="var(--ink)" stroke-width="1" opacity="0"/><rect id="hit" x="${m.l}" y="${m.t}" width="${pw}" height="${ph}" fill="transparent"/>`;
@@ -1323,7 +1326,7 @@ function build(files,opt){
     }
     if(!sm.length)return;
     /* janelas (viagens) */
-    let wins=[];
+    let wins=[],dayMode=false;
     const act=sm.map((s,i)=>s.act?i:-1).filter(i=>i>=0);
     if(opt.trip==='auto'&&act.length){
       let a=sm[act[0]].r.ts,b=a;
@@ -1331,7 +1334,7 @@ function build(files,opt){
       wins.push([a-pad,b+pad]);
     }else{
       if(opt.trip==='auto')W.push(`${pl}: sem ignição, baú ou velocidade para identificar viagens — usado um período por dia.`);
-      const d=new Set(sm.map(s=>Math.floor(s.r.ts/1440)));d.forEach(x=>wins.push([x*1440,x*1440+1439.99]));
+      dayMode=true;const d=new Set(sm.map(s=>Math.floor(s.r.ts/1440)));d.forEach(x=>wins.push([x*1440,x*1440+1439.99]));
     }
     const vi={pl,eq,fonte,trips:0};vehInfo.push(vi);
     for(const [a,b] of wins){
@@ -1347,7 +1350,7 @@ function build(files,opt){
         if(s.ev&&s.door===1&&(i===0||seg[i-1].door===0))fonte==='bau'?nBau++:nDesc++;});
       const dn=modeOf(seg.map(s=>s.r.drv).filter(Boolean))||'Não informado';
       let di=drvIx.get(dn);if(di===undefined){di='M'+drvL.length;drvIx.set(dn,di);drvL.push({id:di,nome:dn});}
-      trips.push({id:'T'+trips.length,veic:pl,day:Math.floor(tm[0]/1440),cli:'IMP1',drv:di,tm,s:sArr,door,spd,loc:lc,ev,fonte,imp:true});
+      trips.push({id:'T'+trips.length,veic:pl,day:Math.floor(tm[0]/1440),cli:'IMP1',drv:di,tm,s:sArr,door,spd,loc:lc,ev,fonte,imp:true,full:dayMode});
       vi.trips++;
     }
   });
