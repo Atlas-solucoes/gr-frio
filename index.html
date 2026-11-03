@@ -353,7 +353,7 @@ function gerarDados(){
     {id:'C4',nome:'Farma Gama',carga:'Vacinas e medicamentos',min:2,max:8,set:3,tol:0,degelo:0},
     {id:'C5',nome:'Laticínios Dália',carga:'Laticínios',min:-2,max:4,set:1,tol:10,degelo:0},
     {id:'C6',nome:'Pescados Ipê',carga:'Pescados',min:-4,max:2,set:-1,tol:10,degelo:0}];
-  const eq=['Risk2','Risk2 + CAN Refrigeração'];
+  const eq=['Rastreador Ravex','Rastreador Ravex + CAN Refrigeração'];
   const placas=['BJP9I61','QWE4R56','RTX2K34','KLM8P90','MNP5T67','HIJ3K45','MKC0J24','RYL9F39','RYQ7J22','RYY2A98','DEF2G34','ABC1D23',
     'GHT3B58','LOP7C21','SDF4K90','XCV8N12','JUY6T45','NBV2M77','ERT5Q09','PLM1Z63','HGF9R30','TYU4V86','CDE7W18','ZAQ3X51'];
   const nomes=['João Silva','Marcos Oliveira','Anderson Lima','Rafael Souza','Carlos Pereira','Edson Ramos','Paulo Mendes','Wesley Santos',
@@ -449,6 +449,9 @@ function profileOf(cid){const c=CLI[cid],o=CFG.prof[cid]||{};
   return {min:o.min??c.min,max:o.max??c.max,tol:o.tol??c.tol};}
 function ruleFor(cid){ // faixa efetiva para uma viagem
   return CFG.mode==='global'?{min:CFG.min,max:CFG.max,tol:CFG.tol}:profileOf(cid);}
+
+/* nome comercial: Risk, Risk2, Risk 2, Risk2 Plus… => Rastreador Ravex */
+const rvName=s=>String(s==null?'':s).replace(/\brisk\s*2?(\s*plus)?\b/gi,'Rastreador Ravex');
 
 /* ============ turnos ============ */
 const TURNOS=[{id:'mad',nome:'Madrugada (00:00–04:59)',curto:'Madrugada',a:0,b:300},{id:'man',nome:'Manhã (05:00–12:59)',curto:'Manhã',a:300,b:780},
@@ -1183,6 +1186,8 @@ function fmtBR(ts){const d=new Date(ts*60000),p=n=>String(n).padStart(2,'0');ret
 
 /* ---- aplicar os dados e guardar no navegador ---- */
 function applyDataset(B){
+  B.DATA.veiculos.forEach(v=>v.equip=rvName(v.equip));B.EQUIPS=[...new Set(B.DATA.veiculos.map(v=>v.equip))];
+  B.DATA.locs=B.DATA.locs.map(rvName);B.EVT.forEach(e=>e.nome=rvName(e.nome));
   DAY0=B.DAY0;NDAYS=B.NDAYS;DATA=B.DATA;EVT=B.EVT;EQUIPS=B.EQUIPS;NPROBES=B.NPROBES;reindex();
   const fill=(s,a)=>{s.clear();a.forEach(o=>s.add(o.id));};
   fill(ST.reg,DATA.regioes);fill(ST.uni,DATA.unidades);fill(ST.fro,DATA.frotas);fill(ST.cli,DATA.clientes);
