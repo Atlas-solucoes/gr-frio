@@ -135,7 +135,9 @@ code{background:var(--bg);padding:1px 6px;border-radius:6px;font-size:12px}
   .filters .fld{min-width:0;width:100%}
   .filters #fCustom{flex-direction:column;gap:12px}
   .filters .ms .panel{position:static;margin-top:4px;min-width:0;max-height:220px;box-shadow:none}
-  .filters .btn,.filters select,.filters input{width:100%}
+  .filters .btn,.filters select,.filters input:not([type=checkbox]){width:100%}
+  .filters .ms .panel input[type=checkbox]{width:auto;flex:none}
+  .filters .ms .panel>div:first-child .btn{width:auto;flex:1}
   .filters .chips{flex-wrap:wrap}
   .filters #btnHist,.filters #btnImp{width:100%}
   .filters>.fld[style*="margin-left:auto"]{margin-left:0!important}
