@@ -908,7 +908,11 @@ function renderChartAll(R,trips){
       if(out){dr+=(prevOut&&!brk?'L':'M')+px;prevOut=true;}else prevOut=false;}
     gray+=`<path d="${dg}" fill="none" stroke="var(--p1)" stroke-width="1.1" opacity=".55" stroke-linejoin="round"/>`;
     red+=`<path d="${dr}" fill="none" stroke="var(--crit)" stroke-width="1.8" stroke-linejoin="round"/>`;}
-  g+=gray+red+`<line id="xh" x1="0" x2="0" y1="${m.t}" y2="${m.t+ph}" stroke="var(--ink)" opacity="0"/><rect id="hit" x="${m.l}" y="${m.t}" width="${pw}" height="${ph}" fill="transparent"/>`;
+  let lab='';
+  if(trips.length<=12){const used=[];for(const a of trips){const t=a.t;let k=0;while(k<t.tm.length&&!shOn(t.tm[k]))k++;if(k>=t.tm.length)continue;
+    let x=X(t.tm[k]),y=Y(val(t,k))-7;for(const u of used)if(Math.abs(u.x-x)<46&&Math.abs(u.y-y)<12)y=u.y-12;used.push({x,y});
+    lab+=`<text x="${x}" y="${y}" style="font-size:10.5px;font-weight:700;fill:var(--ink)" paint-order="stroke" stroke="var(--card,#fff)" stroke-width="3">${VEI[t.veic].placa}</text>`;}}
+  g+=gray+red+lab+`<line id="xh" x1="0" x2="0" y1="${m.t}" y2="${m.t+ph}" stroke="var(--ink)" opacity="0"/><rect id="hit" x="${m.l}" y="${m.t}" width="${pw}" height="${ph}" fill="transparent"/>`;
   box.innerHTML=`<svg class="hov" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Curva de temperatura de todos os veículos">${g}</svg>`;
   const svg=box.firstChild,xh=svg.querySelector('#xh');
   svg.querySelector('#hit').onmousemove=ev=>{
@@ -920,7 +924,7 @@ function renderChartAll(R,trips){
     showTip(`<b>${VEI[t.veic].placa}</b> · ${fmtDT(t.tm[i])}<br>Temperatura: <b>${fmtC(v)}</b> ${ok?'✓':'⚠'}<br>Faixa: ${r.min} a ${r.max} °C<br>Baú: ${t.door[i]?'aberto':'fechado'} · ${t.spd[i]} km/h`,ev.clientX,ev.clientY);};
   svg.querySelector('#hit').onmouseleave=()=>{xh.setAttribute('opacity',0);hideTip();};
   const nv=new Set(trips.map(a=>a.t.veic)).size;
-  $('#chartHint').innerHTML=`<b>Todos os veículos</b> · ${nv} veículo(s) · ${trips.length} viagem(ns) · cada linha é uma viagem (média das sondas selecionadas); trechos em vermelho estão fora da faixa`;
+  $('#chartHint').innerHTML=`<b>Todos os veículos</b> · ${nv} veículo(s) · ${trips.length} viagem(ns) · cada linha é uma viagem de um veículo (a placa aparece no início da linha; média das sondas selecionadas); trechos em vermelho estão fora da faixa`;
   $('#chartLegend').innerHTML=`<span><i style="height:0;border-top:3px solid var(--p1);background:none"></i>Viagem (dentro da faixa)</span><span><i style="height:0;border-top:3px solid var(--crit);background:none"></i>Fora da faixa</span>`+(shAll()?'':'<span>Horários fora do turno não são exibidos</span>')+(same?'':'<span>Faixas diferentes por cliente</span>');
 }
 
