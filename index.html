@@ -160,6 +160,7 @@ code{background:var(--bg);padding:1px 6px;border-radius:6px;font-size:12px}
     <select id="fPType"><option value="dia">Dia</option><option value="semana">Semana</option><option value="quinzena">Quinzena</option><option value="mes">Mês</option><option value="custom">Personalizado</option></select></div>
   <div class="fld" id="fPSelBox"><label>Qual</label><select id="fPSel" style="min-width:250px"></select></div>
   <div id="fCustom" style="display:none;gap:12px"><div class="fld"><label>De</label><input type="date" id="fFrom"></div><div class="fld"><label>Até</label><input type="date" id="fTo"></div></div>
+  <div class="fld ms" id="msTur"><label>Turno</label></div>
   <div class="fld ms" id="msReg"><label>Região</label></div>
   <div class="fld ms" id="msUni"><label>Unidade</label></div>
   <div class="fld ms" id="msFro"><label>Frota</label></div>
@@ -291,7 +292,7 @@ code{background:var(--bg);padding:1px 6px;border-radius:6px;font-size:12px}
     <b>Arraste os arquivos aqui ou clique para escolher</b><span>Histórico de Veículo (obrigatório) · Veículo e Unidade Organizacional (opcionais) · .xlsx ou .csv · dá para enviar vários históricos de uma vez</span></label>
   <div id="impFiles"></div>
   <div class="cfgrow">
-    <div class="fld"><label>Cliente</label><input type="text" id="impCli" placeholder="Nome do cliente" style="min-width:190px"></div>
+    <div class="fld"><label>Cliente / nome do relatório</label><input type="text" id="impCli" placeholder="Nome do cliente" style="min-width:190px"></div>
     <div class="fld"><label>Carga (opcional)</label><input type="text" id="impCarga" placeholder="Ex.: Congelados" style="min-width:150px"></div>
     <div class="fld"><label>Mínima °C</label><input type="number" step="0.5" id="impMin" value="-15"></div>
     <div class="fld"><label>Máxima °C</label><input type="number" step="0.5" id="impMax" value="4"></div>
@@ -337,8 +338,8 @@ function gerarDados(){
   const r = mulberry(20261103);
   const regioes=[{id:'SE',nome:'Sudeste'},{id:'S',nome:'Sul'},{id:'NE',nome:'Nordeste'}];
   const unidades=[
-    {id:'VGP',nome:'Matriz Vargem Grande Paulista',regiao:'SE'},
-    {id:'ARA',nome:'Filial Araraquara',regiao:'SE'},
+    {id:'VGP',nome:'Matriz São Paulo',regiao:'SE'},
+    {id:'ARA',nome:'Filial Interior SP',regiao:'SE'},
     {id:'CWB',nome:'Filial Curitiba',regiao:'S'},
     {id:'REC',nome:'Filial Recife',regiao:'NE'}];
   const frotas=[
@@ -347,15 +348,15 @@ function gerarDados(){
     {id:'F5',nome:'Distribuição Nordeste',unidade:'REC'}];
   const clientes=[
     {id:'C1',nome:'Cliente Aurora',carga:'Congelados leves',min:-15,max:-5,set:-10,tol:15,degelo:1},
-    {id:'C2',nome:'Apetito Foods',carga:'Congelados',min:-15,max:-10,set:-13,tol:15,degelo:1},
+    {id:'C2',nome:'Cliente Delta',carga:'Congelados',min:-15,max:-10,set:-13,tol:15,degelo:1},
     {id:'C3',nome:'Frigorífico Beta',carga:'Resfriados (carnes)',min:0,max:4,set:2,tol:10,degelo:0},
     {id:'C4',nome:'Farma Gama',carga:'Vacinas e medicamentos',min:2,max:8,set:3,tol:0,degelo:0},
     {id:'C5',nome:'Laticínios Dália',carga:'Laticínios',min:-2,max:4,set:1,tol:10,degelo:0},
     {id:'C6',nome:'Pescados Ipê',carga:'Pescados',min:-4,max:2,set:-1,tol:10,degelo:0}];
   const eq=['Risk2','Risk2 + CAN Refrigeração'];
-  const placas=['BJP9I61','QWE4R56','RTX2K34','KLM8P90','MNP5T67','UDE1J11','MKC0J24','RYL9F39','RYQ7J22','RYY2A98','FPW6J48','AWR4D27',
+  const placas=['BJP9I61','QWE4R56','RTX2K34','KLM8P90','MNP5T67','HIJ3K45','MKC0J24','RYL9F39','RYQ7J22','RYY2A98','DEF2G34','ABC1D23',
     'GHT3B58','LOP7C21','SDF4K90','XCV8N12','JUY6T45','NBV2M77','ERT5Q09','PLM1Z63','HGF9R30','TYU4V86','CDE7W18','ZAQ3X51'];
-  const nomes=['Josimar Silva','Marcos Oliveira','Anderson Lima','Rafael Souza','Carlos Pereira','Edson Ramos','Paulo Mendes','Wesley Santos',
+  const nomes=['João Silva','Marcos Oliveira','Anderson Lima','Rafael Souza','Carlos Pereira','Edson Ramos','Paulo Mendes','Wesley Santos',
     'Tiago Barros','Ricardo Alves','Fábio Nunes','Leandro Costa','Sérgio Rocha','Diego Martins'];
   const motoristas=nomes.map((n,i)=>({id:'M'+i,nome:n}));
   const saude=[.04,.08,.12,.18,.25,.35,.5,.7,.9,.06,.15,.3];
@@ -449,6 +450,15 @@ function profileOf(cid){const c=CLI[cid],o=CFG.prof[cid]||{};
 function ruleFor(cid){ // faixa efetiva para uma viagem
   return CFG.mode==='global'?{min:CFG.min,max:CFG.max,tol:CFG.tol}:profileOf(cid);}
 
+/* ============ turnos ============ */
+const TURNOS=[{id:'mad',nome:'Madrugada (00:00–04:59)',curto:'Madrugada',a:0,b:300},{id:'man',nome:'Manhã (05:00–12:59)',curto:'Manhã',a:300,b:780},
+  {id:'tar',nome:'Tarde (13:00–18:59)',curto:'Tarde',a:780,b:1140},{id:'noi',nome:'Noite (19:00–23:59)',curto:'Noite',a:1140,b:1440}];
+const SHIFT_ALL=()=>new Set(TURNOS.map(t=>t.id));
+let SHSET=SHIFT_ALL();          // preenchido pelo estado (ST.sh)
+const shAll=()=>SHSET.size===4;
+function shOn(tm){if(SHSET.size===4)return true;const m=((tm%1440)+1440)%1440;for(const t of TURNOS)if(m>=t.a&&m<t.b)return SHSET.has(t.id);return true;}
+function shLabel(){if(SHSET.size===4)return 'Todos (24 h)';if(!SHSET.size)return 'Nenhum';return TURNOS.filter(t=>SHSET.has(t.id)).map(t=>t.curto).join(', ');}
+
 /* ============ utilitários ============ */
 const $=(s,el=document)=>el.querySelector(s);
 const fmtT=m=>{m=Math.floor(m);const mm=m%1440;return String(Math.floor(mm/60)).padStart(2,'0')+':'+String(mm%60).padStart(2,'0')};
@@ -486,7 +496,7 @@ let NPROBES=5;
 const ST={ptype:'semana',pid:'0',from:0,to:NDAYS-1,
   pr:new Set(Array.from({length:NPROBES},(_,i)=>String(i))),
   reg:ALL(DATA.regioes),uni:ALL(DATA.unidades),fro:ALL(DATA.frotas),cli:ALL(DATA.clientes),
-  eq:new Set(EQUIPS),off:new Set(),group:'total',focus:null,focusDay:'all',lvl:'all',tipo:'all',q:'',sort:{k:'start',d:-1},
+  sh:SHSET,eq:new Set(EQUIPS),off:new Set(),group:'total',focus:null,focusDay:'all',lvl:'all',tipo:'all',q:'',sort:{k:'start',d:-1},
   metaView:'veiculo',heatG:'total',heatI:'all',abG:'veiculo'};
 function initPeriod(){const o=periodOptions('semana');const full=o.find(x=>x.to-x.from===6)||o[0];ST.ptype='semana';ST.pid=full.id;ST.from=full.from;ST.to=full.to;}
 initPeriod();
@@ -525,6 +535,7 @@ function analyzeTrip(t){
     cur=null;
   };
   for(let i=0;i<n;i++){
+    if(!shOn(t.tm[i])){close();continue;}
     let dt=i<n-1?t.tm[i+1]-t.tm[i]:STEP, gap=0;
     if(dt>CFG.gap){gap=dt-STEP; dt=STEP;}
     let hi=-Infinity,lo=Infinity,ph=0,pl=0;
@@ -540,13 +551,14 @@ function analyzeTrip(t){
     if(gap){ close(); out.tGap+=gap; }
   }
   close();
-  for(const e of t.ev){const d=EVT[e.e];
+  for(const e of t.ev){if(!shOn(e.m))continue;const d=EVT[e.e];
     out.ev.push({tipo:d.k,veic:v.id,placa:v.placa,equip:v.equip,unidade:v.unidade,frota:v.frota,drv:t.drv,cli:t.cli,day:t.day,
       start:e.m,end:e.m,dur:0,peak:0,peakVal:null,dir:'',min:null,max:null,causa:d.nome,nivel:d.nv,local:DATA.locs[e.loc]||'—',segs:[]});}
   /* aberturas (sensor de baú; sem sensor, início/fim de descarga) e perda de temperatura */
   const eps=[];for(let i=0;i<n;){if(t.door[i]){let j=i;while(j+1<n&&t.door[j+1])j++;eps.push([i,j]);i=j+1;}else i++;}
   for(const [i,j] of eps){
-    if(t.fonte==='descarga'&&!t.imp&&t.loc[i]<3) continue;          // descarga só conta em parada de cliente
+    if(t.fonte==='descarga'&&!t.imp&&t.loc[i]<3) continue;
+    if(!shOn(t.tm[i])) continue;          // descarga só conta em parada de cliente
     const b=i>0?i-1:i, tOpen=t.tm[i], tClose=(j+1<n)?t.tm[j+1]:t.tm[j]+STEP;
     let k=j;while(k+1<n&&t.tm[k+1]<=tClose+CFG.post)k++;      // janela após fechar
     let best=null;
@@ -567,7 +579,7 @@ function compute(){
   for(const t of DATA.viagens){
     if(t.day<ST.from||t.day>ST.to) continue;
     if(!veh.has(t.veic)||!ST.cli.has(t.cli)) continue;
-    const a=analyzeTrip(t); if(a) trips.push(a);
+    const a=analyzeTrip(t); if(a&&(a.tOp>0||a.ev.length||a.ab.length)) trips.push(a);
   }
   const R={trips,exc:[],evs:[],ab:[],tot:{tOp:0,tOut:0,tTol:0,tGap:0,nExc:0,nCrit:0,nWarn:0,maxDev:0,nRisco:0,nAll:0,nAllCrit:0},
     byDay:Array.from({length:NDAYS},()=>({tOp:0,tOut:0})),
@@ -634,6 +646,7 @@ document.addEventListener('click',()=>document.querySelectorAll('.ms.open').forE
 
 const drawers=[];
 function initFilters(){
+  drawers.push(makeMS('msTur',()=>TURNOS,ST.sh));
   drawers.push(makeMS('msReg',()=>DATA.regioes,ST.reg));
   drawers.push(makeMS('msUni',()=>DATA.unidades.filter(u=>ST.reg.has(u.regiao)),ST.uni));
   drawers.push(makeMS('msFro',()=>DATA.frotas.filter(f=>ST.reg.has(UNI[f.unidade].regiao)&&ST.uni.has(f.unidade)),ST.fro));
@@ -782,7 +795,7 @@ function renderStats(R){
     h('Aberturas de porta (baú ou descarga)')+st('Aberturas analisadas',R.ab.length)+st('Perda média por abertura',R.ab.length?fmtLoss(R.ab.reduce((a,e)=>a+e.loss,0)/R.ab.length):'—')+
       st('Maior perda',R.ab.length?fmtLoss(Math.max(...R.ab.map(e=>e.loss))):'—')+st('Tempo médio aberto',R.ab.length?fmtDur(R.ab.reduce((a,e)=>a+e.dur,0)/R.ab.length):'—')+st('Acima do limite',R.ab.length?`${R.ab.filter(e=>e.over).length} de ${R.ab.length}`:'—')+
     h('Temperatura')+st('Efetividade',pct(R.eff))+st('Meta',CFG.meta+'%')+st('Tempo fora da faixa',fmtDur(T.tOut))+st('Sem sinal',fmtDur(T.tGap))+
-      st('Maior desvio',T.nExc?'+'+String(Math.round(T.maxDev*10)/10).replace('.',',')+' °C':'—')+st('Faixa aplicada',rangeText(),1)+st('Sondas avaliadas',probesLabel(),1);
+      st('Maior desvio',T.nExc?'+'+String(Math.round(T.maxDev*10)/10).replace('.',',')+' °C':'—')+st('Faixa aplicada',rangeText(),1)+st('Turnos avaliados',shLabel(),1)+st('Sondas avaliadas',probesLabel(),1);
 }
 
 /* ---- controles do gráfico ---- */
@@ -832,6 +845,7 @@ function renderChart(R){
   const multiDay=segs.length>1, segW=pw/segs.length, every=Math.max(1,Math.ceil(34/segW));
   segs.forEach((s,si)=>{const t=s.a.t,x0=X(s,t.tm[0]),x1=X(s,t.tm[0]+s.span),r=s.a.rule;
     g+=`<rect x="${x0}" y="${Y(r.max)}" width="${x1-x0}" height="${Y(r.min)-Y(r.max)}" fill="var(--band)"/>`;
+    if(!shAll())for(let i=0;i<t.tm.length;i++)if(!shOn(t.tm[i])){const xa=X(s,t.tm[i]),xb=X(s,i+1<t.tm.length?t.tm[i+1]:t.tm[i]+STEP);g+=`<rect x="${xa}" y="${m.t}" width="${Math.max(1,xb-xa)}" height="${ph}" fill="var(--ink3)" opacity=".28"/>`;}
     for(const e of s.a.exc){const xa=X(s,e.start),xb=X(s,e.end);g+=`<rect x="${xa}" y="${m.t}" width="${Math.max(2,xb-xa)}" height="${ph}" fill="var(--crit)" opacity=".13"/>`;}
     for(let i=0;i<t.tm.length-1;i++){if(t.tm[i+1]-t.tm[i]>CFG.gap){const xa=X(s,t.tm[i]),xb=X(s,t.tm[i+1]);g+=`<rect x="${xa}" y="${m.t}" width="${xb-xa}" height="${ph}" fill="var(--ink3)" opacity=".15"/>`;}}
     for(let i=0;i<t.tm.length;i++)if(t.door[i])g+=`<rect x="${X(s,t.tm[i])-1.5}" y="${m.t+ph-7}" width="${Math.max(3,STEP/total*pw)}" height="7" rx="2" fill="var(--warn)"/>`;
@@ -860,7 +874,7 @@ function renderChart(R){
   const g1=R.vehs.get(ST.focus);
   $('#chartHint').innerHTML=`<b>${v.placa}</b> · ${esc(v.equip)} · ${esc(UNI[v.unidade].nome)} · ${NP} sonda(s) · ${segs.length} viagem(ns) · efetividade ${pct(effOf(g1))} · ${statusTag(effOf(g1))}`;
   let lg='';for(let p=0;p<NP;p++)lg+=`<span style="${ST.pr.has(String(p))?'':'opacity:.5'}"><i style="height:0;border-top:3px ${PDASH[p]?'dashed':'solid'} var(--p${p+1});background:none"></i>Sonda ${p+1}</span>`;
-  $('#chartLegend').innerHTML=lg+`<span><i style="background:var(--ok);opacity:.35;height:10px"></i>Faixa permitida</span><span><i style="height:0;border-top:2px dashed var(--crit);background:none"></i>Limite máximo</span><span><i style="height:0;border-top:2px dashed var(--s1);background:none"></i>Limite mínimo</span><span><i style="background:var(--crit);opacity:.3;height:10px"></i>Ocorrência</span><span><i style="background:var(--warn);height:7px"></i>Baú aberto / descarga</span><span><i style="background:var(--ink3);opacity:.4;height:10px"></i>Sem sinal</span>`;
+  $('#chartLegend').innerHTML=lg+(shAll()?'':'<span><i style="background:var(--ink3);opacity:.35;height:10px"></i>Fora do turno (não avaliado)</span>')+`<span><i style="background:var(--ok);opacity:.35;height:10px"></i>Faixa permitida</span><span><i style="height:0;border-top:2px dashed var(--crit);background:none"></i>Limite máximo</span><span><i style="height:0;border-top:2px dashed var(--s1);background:none"></i>Limite mínimo</span><span><i style="background:var(--crit);opacity:.3;height:10px"></i>Ocorrência</span><span><i style="background:var(--warn);height:7px"></i>Baú aberto / descarga</span><span><i style="background:var(--ink3);opacity:.4;height:10px"></i>Sem sinal</span>`;
 }
 
 /* ---- cumprimento da meta ---- */
@@ -1027,13 +1041,14 @@ function classify(name,rows){
     const idx={};rows[r].forEach((c,i)=>{const k=nrm(c);if(k&&!(k in idx))idx[k]=i;});
     if('emissao/envio' in idx&&'temperatura 1' in idx)return{name,kind:'hist',hi:r,idx,rows};
     if('placa' in idx&&'unidade organizacional (proprietaria)' in idx)return{name,kind:'veic',hi:r,idx,rows};
+    if('placa' in idx&&('frota' in idx||'cliente' in idx||'unidade' in idx))return{name,kind:'cad',hi:r,idx,rows};
     if('apelido' in idx&&'area' in idx)return{name,kind:'uni',hi:r,idx,rows};
   }
   return{name,kind:null,rows};
 }
 async function readFile(f){
   const buf=await f.arrayBuffer();
-  const wb=XLSX.read(new Uint8Array(buf),{type:'array',cellDates:true});
+  const wb=XLSX.read(new Uint8Array(buf),{type:'array',cellDates:true,codepage:65001});
   const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:true,defval:''});
   return classify(f.name,rows);
 }
@@ -1045,7 +1060,7 @@ const RISK_RE=/conduta irregular|viola[cç]|p[aâ]nico|desvio|excesso de velocid
 const modeOf=a=>{const m=new Map();a.forEach(x=>m.set(x,(m.get(x)||0)+1));let b=null,n=0;m.forEach((c,k)=>{if(c>n){n=c;b=k}});return b;};
 
 function build(files,opt){
-  const hist=files.filter(f=>f.kind==='hist'),vf=files.filter(f=>f.kind==='veic'),uf=files.filter(f=>f.kind==='uni');
+  const hist=files.filter(f=>f.kind==='hist'),vf=files.filter(f=>f.kind==='veic'||f.kind==='cad'),uf=files.filter(f=>f.kind==='uni');
   const W=[],S={arquivos:hist.length};
   if(!hist.length)return{erro:'Falta o arquivo “Histórico de Veículo” (precisa ter as colunas Emissão/envio e Temperatura 1).'};
   /* unidade organizacional → UF, e placa → unidade */
@@ -1053,11 +1068,13 @@ function build(files,opt){
   for(const f of uf){const I=f.idx;for(let r=f.hi+1;r<f.rows.length;r++){const R=f.rows[r];
     const nome=String(R[I['apelido']]||R[I['nome']]||'').trim();if(!nome)continue;
     const m=String(R[I['area']]||'').match(/-\s*([A-Za-z]{2})\s*$/);uInfo[nrm(nome)]={nome,uf:m?m[1].toUpperCase():''};}}
-  const vUni={};
-  for(const f of vf){const I=f.idx;for(let r=f.hi+1;r<f.rows.length;r++){const R=f.rows[r],p=plateOf(R[I['placa']]);
-    const u=String(R[I['unidade organizacional (proprietaria)']]||'').trim();if(p&&u)vUni[p]=u;}}
+  const vUni={},vFro={},vCli={};
+  for(const f of vf){const I=f.idx,cU=I['unidade organizacional (proprietaria)']??I['unidade'],cF=I['frota'],cC=I['cliente'];
+    for(let r=f.hi+1;r<f.rows.length;r++){const R=f.rows[r],p=plateOf(R[I['placa']]);if(!p)continue;
+      const g=c=>c==null?'':String(R[c]||'').trim();
+      if(g(cU))vUni[p]=g(cU);if(g(cF))vFro[p]=g(cF);if(g(cC))vCli[p]=g(cC);}}
   /* linhas do histórico por placa */
-  const byPlate=new Map(),pCount=[0,0,0,0,0];let nRows=0,nMdvr=0,minTs=Infinity,maxTs=-Infinity;
+  const byPlate=new Map(),pCount=[0,0,0,0,0],seen=new Set();let dup=0,nRows=0,nMdvr=0,minTs=Infinity,maxTs=-Infinity;
   hist.forEach((f,fi)=>{const I=f.idx,c=k=>I[k],cT=c('emissao/envio'),cInf=c('informacao'),cIg=c('ignicao'),cEnt=c('entradas'),cDrv=c('motorista'),
     cEq=c('tipo do equipamento'),cSp=c('velocidade (gps)'),cLoc=c('ponto referencia'),cPl=c('placa')??c('veiculo');
     const cTp=[1,2,3,4,5].map(n=>c('temperatura '+n));
@@ -1075,19 +1092,21 @@ function build(files,opt){
       const risk=RISK_RE.test(inf)&&!/sensor|ignicao|posicao|todos os sensores/.test(inf)?infO:null;
       const sp=cSp!=null?numOf(R[cSp]):0;
       let loc=cLoc!=null?String(R[cLoc]||'').replace(/^a\s+[\d.,]+\s*km\s+d[eo]\s+/i,'').trim():'';if(loc.length>80)loc=loc.slice(0,78)+'…';
+      const key=pl+'|'+ts+'|'+infO+'|'+temps.join(',');if(seen.has(key)){dup++;nRows--;continue;}seen.add(key);
       let a=byPlate.get(pl);if(!a){a=[];byPlate.set(pl,a);}
       a.push({ts,temps,sens,desc,ign,risk,spd:isFinite(sp)?sp:0,loc,drv:cDrv!=null?String(R[cDrv]||'').trim():'',eq});
     }});
   const pm=[0,1,2,3,4].filter(p=>pCount[p]>0);
   if(!pm.length)return{erro:'Nenhuma leitura de temperatura válida foi encontrada nas colunas Temperatura 1 a 5.'};
   if(!nRows)return{erro:'Nenhuma linha com data válida em “Emissão/envio”.'};
-  S.linhas=nRows;S.mdvr=nMdvr;S.sondas=pm.map(p=>p+1);S.ini=minTs;S.fim=maxTs;S.placas=byPlate.size;
+  S.linhas=nRows;S.dup=dup;S.mdvr=nMdvr;S.sondas=pm.map(p=>p+1);S.ini=minTs;S.fim=maxTs;S.placas=byPlate.size;
   const base=Math.floor(minTs/1440)*1440,locs=['Sem localização'],locIx=new Map([['',0]]);
   const evtL=[],evtIx=new Map(),drvL=[],drvIx=new Map();
   const NPm=pm.length,trips=[],vehInfo=[];let nBau=0,nDesc=0,nRisk=0,semPorta=0,semUnidade=0;
-  const gap=120,pad=15;
+  const gap=120,pad=15;let gapW=0;
   [...byPlate.keys()].sort().forEach(pl=>{
     const rows=byPlate.get(pl).sort((a,b)=>a.ts-b.ts);
+    for(let i=1;i<rows.length&&gapW<4;i++)if(rows[i].ts-rows[i-1].ts>1440){gapW++;W.push(`${pl}: sem leituras de ${fmtBR(rows[i-1].ts)} a ${fmtBR(rows[i].ts)} — falta algum arquivo desse período?`);}
     const hasBau=rows.some(r=>r.sens.length>0),hasDesc=rows.some(r=>r.desc!=null);
     const fonte=hasBau?'bau':hasDesc?'descarga':'bau';if(!hasBau&&!hasDesc)semPorta++;
     const eq=modeOf(rows.filter(r=>r.temps.some(isFinite)&&r.eq).map(r=>r.eq))||'Não informado';
@@ -1135,23 +1154,28 @@ function build(files,opt){
   });
   if(!trips.length)return{erro:'Não foi possível montar nenhuma viagem com esses dados (poucas leituras de temperatura).'};
   /* cadastro: regiões, unidades, frotas, veículos */
-  const regs=new Map(),unis=new Map(),frs=[],veic=[];
+  const regs=new Map(),unis=new Map(),frs=[],veic=[],froMap=new Map(),cliMap=new Map(),cliOf={},mn=Number(opt.min),mx=Number(opt.max);
   const regOf=uf=>{const id=UF_REG[uf]||'ND';if(!regs.has(id))regs.set(id,{id,nome:REG_NOME[id]});return id;};
   for(const vi of vehInfo){
     let un=vUni[vi.pl];if(!un){un='Unidade não informada';semUnidade++;}
     let u=unis.get(un);
-    if(!u){const inf=uInfo[nrm(un)];u={id:'U'+unis.size,nome:un,regiao:regOf(inf?inf.uf:'')};unis.set(un,u);frs.push({id:'F'+u.id,nome:'Sem frota informada',unidade:u.id});}
-    veic.push({id:vi.pl,placa:vi.pl,unidade:u.id,frota:'F'+u.id,equip:vi.eq,bau:vi.fonte==='bau',sondas:NPm,clientes:['IMP1']});
+    if(!u){const inf=uInfo[nrm(un)];u={id:'U'+unis.size,nome:un,regiao:regOf(inf?inf.uf:'')};unis.set(un,u);}
+    const fn=vFro[vi.pl]||'Sem frota informada',fk=u.id+'|'+fn;let fr=froMap.get(fk);
+    if(!fr){fr={id:'F'+froMap.size,nome:fn,unidade:u.id};froMap.set(fk,fr);frs.push(fr);}
+    const cn=vCli[vi.pl]||'',ck=nrm(cn)||'_',defN=opt.nome||'Cliente';let cl=cliMap.get(ck);
+    if(!cl){cl={id:ck==='_'?'IMP1':'C'+cliMap.size,nome:cn||defN,carga:opt.carga||'',min:mn,max:mx,set:(mn+mx)/2,tol:Number(opt.tol)||0,degelo:0};cliMap.set(ck,cl);}
+    cliOf[vi.pl]=cl.id;
+    veic.push({id:vi.pl,placa:vi.pl,unidade:u.id,frota:fr.id,equip:vi.eq,bau:vi.fonte==='bau',sondas:NPm,clientes:[cl.id]});
   }
-  const mn=Number(opt.min),mx=Number(opt.max);
-  const cliente={id:'IMP1',nome:opt.nome||'Cliente',carga:opt.carga||'',min:mn,max:mx,set:(mn+mx)/2,tol:Number(opt.tol)||0,degelo:0};
+  for(const t of trips)t.cli=cliOf[t.veic];
+  const cliente=[...cliMap.values()];
   const d0=new Date(base*60000),nd=Math.min(400,Math.floor(Math.max(...trips.map(t=>t.tm[t.tm.length-1]))/1440)+1);
   const periodo=fmtBR(minTs)+' a '+fmtBR(maxTs);
-  const DT={regioes:[...regs.values()],unidades:[...unis.values()],frotas:frs,clientes:[cliente],veiculos:veic,motoristas:drvL,viagens:trips,locs,
-    meta:{cliente:cliente.nome,periodo}};
+  const DT={regioes:[...regs.values()],unidades:[...unis.values()],frotas:frs,clientes:cliente,veiculos:veic,motoristas:drvL,viagens:trips,locs,
+    meta:{cliente:opt.nome||cliente[0].nome,periodo}};
   Object.assign(S,{viagens:trips.length,veiculos:veic.length,motoristas:drvL.filter(m=>m.nome!=='Não informado').length,nBau,nDesc,nRisk,semPorta,semUnidade,
-    unidades:unis.size,uInfoN:Object.keys(uInfo).length,vUniN:Object.keys(vUni).length,eventos:evtL.length,dias:nd,porta:vehInfo.map(v=>v.fonte)});
-  if(semUnidade&&vf.length)W.push(`${semUnidade} placa(s) do histórico não estão no arquivo Veículo — ficaram em “Unidade não informada”.`);
+    unidades:unis.size,frotas:frs.length,clientes:cliente.length,nFro:Object.keys(vFro).length,nCli:Object.keys(vCli).length,uInfoN:Object.keys(uInfo).length,vUniN:Object.keys(vUni).length,eventos:evtL.length,dias:nd,porta:vehInfo.map(v=>v.fonte)});
+  if(semUnidade&&vf.length)W.push(`${semUnidade} placa(s) do histórico não estão nos arquivos de cadastro (Veículo/Cadastro) — ficaram em “Unidade não informada”.`);
   if(semPorta)W.push(`${semPorta} veículo(s) sem “Sensor de Baú Traseiro” nem “Início/Fim de Descarga” — sem medição de perda nas aberturas.`);
   return{B:{DAY0:new Date(d0.getUTCFullYear(),d0.getUTCMonth(),d0.getUTCDate()),NDAYS:nd,DATA:DT,EVT:evtL,EQUIPS:[...new Set(veic.map(v=>v.equip))],NPROBES:NPm},S,W};
 }
@@ -1163,7 +1187,7 @@ function applyDataset(B){
   const fill=(s,a)=>{s.clear();a.forEach(o=>s.add(o.id));};
   fill(ST.reg,DATA.regioes);fill(ST.uni,DATA.unidades);fill(ST.fro,DATA.frotas);fill(ST.cli,DATA.clientes);
   ST.eq.clear();EQUIPS.forEach(e=>ST.eq.add(e));ST.pr.clear();for(let i=0;i<NPROBES;i++)ST.pr.add(String(i));
-  ST.off.clear();ST.group='total';ST.heatG='total';ST.heatI='all';ST.abG='veiculo';ST.focus=null;ST.focusDay='all';ST.lvl='all';ST.tipo='all';ST.q='';
+  ST.sh.clear();TURNOS.forEach(t=>ST.sh.add(t.id));ST.off.clear();ST.group='total';ST.heatG='total';ST.heatI='all';ST.abG='veiculo';ST.focus=null;ST.focusDay='all';ST.lvl='all';ST.tipo='all';ST.q='';
   $('#occQ').value='';ST.ptype='custom';ST.from=0;ST.to=NDAYS-1;
   CFG.mode='client';CFG.prof={};saveCfg();
 }
@@ -1235,7 +1259,7 @@ function renumber(){let n=0;document.querySelectorAll('.eyebrow').forEach(e=>{if
 
 /* ---- janela de importação ---- */
 const IMP={files:[],built:null};
-const KIND_L={hist:['Histórico de Veículo','ok'],veic:['Veículo','ok'],uni:['Unidade Organizacional','ok']};
+const KIND_L={hist:['Histórico de Veículo','ok'],veic:['Veículo','ok'],cad:['Cadastro (placa/frota/cliente)','ok'],uni:['Unidade Organizacional','ok']};
 function impOpt(){return{nome:$('#impCli').value.trim(),carga:$('#impCarga').value.trim(),min:$('#impMin').value,max:$('#impMax').value,tol:$('#impTol').value,trip:$('#impTrip').value};}
 function impRender(){
   $('#impFiles').innerHTML=IMP.files.map((f,i)=>{const k=KIND_L[f.kind];
@@ -1248,12 +1272,12 @@ function impRender(){
     else{const S=r.S;ok=isFinite(Number(o.min))&&isFinite(Number(o.max))&&Number(o.min)<Number(o.max);
       const sk=S.nBau?`${S.nBau} aberturas pelo sensor de baú`:'',sd=S.nDesc?`${S.nDesc} aberturas por início/fim de descarga`:'';
       h.push('<ul>',
-       `<li><b>${S.linhas.toLocaleString('pt-BR')}</b> leituras · <b>${S.veiculos}</b> veículo(s) · <b>${S.viagens}</b> viagem(ns) · período <b>${esc(r.B.DATA.meta.periodo)}</b></li>`,
+       `<li><b>${S.arquivos}</b> arquivo(s) de histórico · <b>${S.linhas.toLocaleString('pt-BR')}</b> leituras${S.dup?` (${S.dup.toLocaleString('pt-BR')} repetidas entre arquivos descartadas)`:''} · <b>${S.veiculos}</b> veículo(s) · <b>${S.viagens}</b> viagem(ns) · período <b>${esc(r.B.DATA.meta.periodo)}</b></li>`,
        `<li>Sondas de temperatura encontradas: <b>${S.sondas.join(', ')}</b></li>`,
        `<li>Perda nas aberturas: ${[sk,sd].filter(Boolean).join(' · ')||'<span class="w">sem dados — a seção não aparecerá</span>'}</li>`,
        `<li>Motoristas: ${S.motoristas?`<b>${S.motoristas}</b> identificado(s)`:'<span class="w">coluna vazia — ranking de motoristas não aparecerá</span>'}</li>`,
        `<li>Regras de risco (conduta, violação, desvio…): ${S.nRisk?`<b>${S.nRisk}</b> evento(s)`:'<span class="w">nenhum evento — não aparecerão</span>'}</li>`,
-       `<li>Unidade / região: ${S.vUniN?`<b>${S.unidades}</b> unidade(s)`:'<span class="w">arquivo Veículo não enviado — filtros de unidade e região não aparecerão</span>'}</li>`,
+       `<li>Unidades: ${S.vUniN?`<b>${S.unidades}</b>`:'<span class="w">sem arquivo Veículo — filtros de unidade e região não aparecerão</span>'} · Frotas: ${S.nFro?`<b>${S.frotas}</b>`:'<span class="w">sem coluna Frota — filtro não aparecerá</span>'} · Clientes: ${S.nCli?`<b>${S.clientes}</b> (faixa inicial igual; ajuste cada um em “Faixa e regras”)`:'<b>1</b>'}</li>`,
        S.mdvr?`<li>${S.mdvr.toLocaleString('pt-BR')} linhas de MDVR ignoradas</li>`:'','</ul>');
       r.W.forEach(w=>h.push(`<p class="w">⚠ ${esc(w)}</p>`));
       if(!ok)h.push('<p class="e">Confira a faixa de temperatura (mínima deve ser menor que a máxima).</p>');}
@@ -1269,8 +1293,10 @@ function initImport(){
   $('#impNeed').innerHTML=`<table class="tbl" style="width:100%"><tr><th>Arquivo</th><th>Colunas usadas</th><th>Para quê</th></tr>
    <tr><td><b>Histórico de Veículo</b> (obrigatório)</td><td>Emissão/envio · Placa · Temperatura 1 a 5 · Informação · Ignição · Entradas · Motorista · Tipo do equipamento · Velocidade (GPS) · Ponto referência</td><td>Curva, efetividade, ocorrências, aberturas (Sensor de Baú Traseiro ou Início/Fim de Descarga), motoristas, regras de risco</td></tr>
    <tr><td><b>Veículo</b> (opcional)</td><td>Placa · Unidade organizacional (proprietária)</td><td>Filtro e ranking por unidade</td></tr>
+   <tr><td><b>Cadastro</b> (opcional)</td><td>Placa · Frota · Cliente · Unidade (qualquer combinação)</td><td>Filtro por frota, vários clientes no mesmo relatório (cada um com sua faixa) e unidade, se não houver arquivo Veículo</td></tr>
    <tr><td><b>Unidade Organizacional</b> (opcional)</td><td>Apelido · Área (termina com “- UF”)</td><td>Filtro e ranking por região</td></tr></table>
-   <p>O que não vier nos arquivos simplesmente não aparece no relatório. Dá para enviar um histórico por veículo ou um único com vários veículos. A faixa de temperatura é informada nesta tela.</p>`;
+   <p>O que não vier nos arquivos simplesmente não aparece no relatório. Dá para enviar vários históricos do mesmo veículo (semanas seguidas) e de vários veículos ao mesmo tempo; linhas repetidas entre arquivos são descartadas. A faixa de temperatura é informada nesta tela.</p>`;
+  const tb=document.createElement('button');tb.className='btn';tb.textContent='Baixar modelo de cadastro (.csv)';tb.style.marginTop='8px';tb.onclick=()=>{const t='\ufeffPlaca;Frota;Cliente;Unidade\r\nABC1D23;Frota SP;Cliente Alfa;Matriz São Paulo\r\nDEF2G34;Frota Interior;Cliente Beta;Filial Campinas\r\n',a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download='modelo_cadastro_gr.csv';a.click();};$('#impNeed').appendChild(tb);
   $('#btnImp').onclick=()=>{IMP.files=[];IMP.built=null;$('#impModal').classList.add('open');impRender();};
   $('#impClose').onclick=()=>$('#impModal').classList.remove('open');
   $('#impModal').onclick=e=>{if(e.target.id==='impModal')$('#impModal').classList.remove('open');};
