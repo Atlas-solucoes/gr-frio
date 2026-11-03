@@ -127,10 +127,32 @@ code{background:var(--bg);padding:1px 6px;border-radius:6px;font-size:12px}
 .heat{display:grid;gap:2px}
 .foot{color:var(--ink3);font-size:12px;margin-top:20px;text-align:center}
 @page{size:A4 portrait;margin:0}
+/* barra lateral fixa de filtros (telas largas) */
+@media(min-width:1100px){
+  .wrap:not(header .wrap){max-width:1720px;display:grid;grid-template-columns:276px minmax(0,1fr);column-gap:22px;row-gap:0;align-items:start}
+  .wrap:not(header .wrap)>*{grid-column:2;min-width:0}
+  .wrap:not(header .wrap)>.filters{grid-column:1;grid-row:1/span 400;position:sticky;top:12px;margin:14px 0 0;max-height:calc(100vh - 24px);overflow-y:auto;flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:12px;padding:14px;z-index:30}
+  .filters .fld{min-width:0;width:100%}
+  .filters #fCustom{flex-direction:column;gap:12px}
+  .filters .ms .panel{position:static;margin-top:4px;min-width:0;max-height:220px;box-shadow:none}
+  .filters .btn,.filters select,.filters input{width:100%}
+  .filters .chips{flex-wrap:wrap}
+  .filters #btnHist,.filters #btnImp{width:100%}
+  .filters>.fld[style*="margin-left:auto"]{margin-left:0!important}
+  .filters>.fld[style*="margin-left:auto"]>div{flex-direction:column}
+  .filters #fPSel{min-width:0!important}
+  header.top .wrap{max-width:1720px}
+  .filters::before{order:-4}
+  .filters>.fld:has(#btnImp){order:-3}
+  .filters>.fld:has(#btnCfg){order:-2}
+  .filters{gap:10px!important}
+  .filters>.fld:has(#btnImp)>label,.filters>.fld:has(#btnCfg)>label{display:none}
+  .filters::before{content:"Filtros";font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--ink3)}
+}
 @media print{body{padding:12mm}
   :root{color-scheme:light}
   body{background:#fff}header.top .btn,.filters,.cfg,.noprint,.drawer{display:none!important}
-  body{padding:12mm}.wrap{max-width:none;padding:0}
+  body{padding:12mm}.wrap,.wrap:not(header .wrap){max-width:none;padding:0;display:block!important}
   .card{box-shadow:none;break-inside:auto}.card:not(:has(.tscroll)){break-inside:avoid}
   .tscroll{max-height:none!important;overflow:visible!important}
   .eyebrow{break-after:avoid;margin:22px 0 10px}h2{break-after:avoid}
@@ -166,6 +188,7 @@ code{background:var(--bg);padding:1px 6px;border-radius:6px;font-size:12px}
   <div class="fld ms" id="msFro"><label>Frota</label></div>
   <div class="fld ms" id="msCli"><label>Cliente / carga</label></div>
   <div class="fld" id="fldEq"><label>Tipo de equipamento</label><div class="chips" id="chipsEq"></div></div>
+  <div class="fld ms" id="msCp"><label>Compartimento</label></div>
   <div class="fld ms" id="msPr"><label>Sonda de temperatura</label></div>
   <div class="fld"><label>Veículos no relatório</label><button class="btn" id="btnVeh">—</button></div>
   <div class="fld"><label>&nbsp;</label><button class="btn primary" id="btnCfg">⚙ Faixa e regras</button></div>
@@ -189,12 +212,15 @@ code{background:var(--bg);padding:1px 6px;border-radius:6px;font-size:12px}
     <div class="fld"><label>Perda aceitável por abertura (°C)</label><input type="number" step="0.5" min="0" id="gLoss"></div>
     <button class="btn" id="btnReset">Restaurar padrão</button>
   </div>
+  <div class="hint" style="margin-top:14px"><b>Compartimentos (congelado e resfriado)</b> — escolha o compartimento de cada sonda. Sondas com compartimento usam a faixa dele; as demais seguem a faixa do cliente.</div>
+  <div id="cfgComp"></div>
   <div class="tscroll" style="max-height:260px"><table id="tblProfiles"></table></div>
   <div class="hint" style="margin-top:8px">No modo “por cliente / carga”, cada viagem é avaliada pela faixa e tolerância do cliente. No modo “global”, vale a faixa única acima para todos.</div>
 </section>
 
 <div class="eyebrow" data-n="1">Visão geral</div>
 <div class="grid kpis" id="kpis"></div>
+<div class="grid hide" id="compCards" style="margin-top:12px;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr))"></div>
 <details class="card resumo" open>
   <summary><span>Resumo do período</span><span style="color:var(--ink3);font-size:13px;font-weight:600">clique para recolher ou expandir <span class="chev" style="display:inline-block">▾</span></span></summary>
   <div class="stats" id="stats"></div>
@@ -216,7 +242,7 @@ code{background:var(--bg);padding:1px 6px;border-radius:6px;font-size:12px}
 </section>
 
 <div class="eyebrow" data-n="3">Meta e causas</div>
-<div class="grid two-eq">
+<div class="grid two-eq" id="gridMeta">
   <section class="card">
     <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
       <div><h2>Cumprimento da meta</h2><div class="hint" id="metaHint">—</div></div>
@@ -224,7 +250,7 @@ code{background:var(--bg);padding:1px 6px;border-radius:6px;font-size:12px}
     </div>
     <div id="metaChart"></div>
   </section>
-  <section class="card"><h2>Por que sai da faixa?</h2><div class="hint">Minutos fora da faixa por causa provável.</div><div id="causes"></div></section>
+  <section class="card" id="secCauses"><h2>Por que sai da faixa?</h2><div class="hint">Minutos fora da faixa por causa provável.</div><div id="causes"></div></section>
 </div>
 
 <div id="secAb">
@@ -299,6 +325,15 @@ code{background:var(--bg);padding:1px 6px;border-radius:6px;font-size:12px}
     <div class="fld"><label>Tolerância (min)</label><input type="number" min="0" id="impTol" value="15"></div>
     <div class="fld"><label>Período analisado de cada veículo</label><select id="impTrip"><option value="dia">Dia completo — todas as leituras (recomendado)</option><option value="auto">Só em operação (ignição, baú, velocidade)</option></select></div>
   </div>
+  <div class="cfgrow" style="align-items:flex-end">
+    <div class="fld"><label>Compartimentos separados (congelado / resfriado)</label><select id="impComp"><option value="0">Não — faixa única</option><option value="1">Sim — duas faixas</option></select></div>
+    <div class="fld cpx"><label>Congelado mín °C</label><input type="number" step="0.5" id="impCgMin" value="-25"></div>
+    <div class="fld cpx"><label>Congelado máx °C</label><input type="number" step="0.5" id="impCgMax" value="-15"></div>
+    <div class="fld cpx"><label>Resfriado mín °C</label><input type="number" step="0.5" id="impRfMin" value="0"></div>
+    <div class="fld cpx"><label>Resfriado máx °C</label><input type="number" step="0.5" id="impRfMax" value="5"></div>
+  </div>
+  <div id="impPmap" class="cfgrow cpx"></div>
+  <label style="display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="impCause" checked> Incluir no relatório o painel “Por que sai da faixa?” (motivos das ocorrências)</label>
   <div id="impSum"></div>
   <details class="impneed"><summary>O que o relatório precisa de cada arquivo</summary><div id="impNeed"></div></details>
   </div>
@@ -451,6 +486,16 @@ function ruleFor(cid){ // faixa efetiva para uma viagem
   return CFG.mode==='global'?{min:CFG.min,max:CFG.max,tol:CFG.tol}:profileOf(cid);}
 
 /* nome comercial: Risk, Risk2, Risk 2, Risk2 Plus… => Rastreador Ravex */
+/* compartimentos: congelado / resfriado */
+const CPN={cong:'Congelado',resf:'Resfriado'};
+const CC_DEF=()=>({pcomp:[],cong:{min:-25,max:-15},resf:{min:0,max:5},showCauses:true});
+function normCC(){if(!DATA.cc)DATA.cc=CC_DEF();const c=DATA.cc,d=CC_DEF();c.pcomp=c.pcomp||[];c.cong=c.cong||d.cong;c.resf=c.resf||d.resf;if(c.showCauses===undefined)c.showCauses=true;return c;}
+const PC=p=>(DATA.cc&&DATA.cc.pcomp[p])||'';
+const hasComp=()=>!!(DATA.cc&&DATA.cc.pcomp.some(x=>x));
+const showCause=()=>!DATA.cc||DATA.cc.showCauses!==false;
+function ruleP(p,rule){const c=PC(p);if(!c)return rule;const r=DATA.cc[c];return{min:r.min,max:r.max,tol:rule.tol};}
+const fmtR=n=>String(n).replace('.',',');
+function ccText(cc){return ['cong','resf'].filter(k=>cc.pcomp.includes(k)).map(k=>CPN[k]+' '+fmtR(cc[k].min)+' a '+fmtR(cc[k].max)+' °C').join(' · ');}
 const rvName=s=>String(s==null?'':s).replace(/\brisk\s*2?(\s*plus)?\b/gi,'Rastreador Ravex');
 
 /* ============ turnos ============ */
@@ -498,6 +543,7 @@ let EQUIPS=[...new Set(DATA.veiculos.map(v=>v.equip))];
 let NPROBES=5,PNUM=[1,2,3,4,5];const pn=i=>PNUM[i]||i+1;
 const ST={ptype:'semana',pid:'0',from:0,to:NDAYS-1,
   pr:new Set(Array.from({length:NPROBES},(_,i)=>String(i))),
+  cp:new Set(['cong','resf']),
   reg:ALL(DATA.regioes),uni:ALL(DATA.unidades),fro:ALL(DATA.frotas),cli:ALL(DATA.clientes),
   sh:SHSET,eq:new Set(EQUIPS),off:new Set(),group:'total',focus:null,focusDay:'all',lvl:'all',tipo:'all',q:'',sort:{k:'start',d:-1},
   metaView:'veiculo',heatG:'total',heatI:'all',abG:'veiculo'};
@@ -510,11 +556,11 @@ function vehPassesFilters(v){
 }
 const filteredVehicles=()=>DATA.veiculos.filter(vehPassesFilters);
 const activeVehicles=()=>filteredVehicles().filter(v=>!ST.off.has(v.id));
-const probesOf=t=>{const o=[];for(let p=0;p<t.s.length;p++)if(ST.pr.has(String(p)))o.push(p);return o;};
+const probesOf=t=>{const o=[];for(let p=0;p<t.s.length;p++)if(ST.pr.has(String(p))&&(!PC(p)||ST.cp.has(PC(p))))o.push(p);return o;};
 
 /* ============ 4) MOTOR DE CÁLCULO ============ */
-function analyzeTrip(t){
-  const v=VEI[t.veic], rule=ruleFor(t.cli), n=t.tm.length, idx=probesOf(t);
+function analyzeTrip(t,forceIdx,lite){
+  const v=VEI[t.veic], rule=ruleFor(t.cli), n=t.tm.length, idx=forceIdx||probesOf(t), rp=p=>ruleP(p,rule);
   if(!idx.length) return null; // veículo não tem nenhuma das sondas escolhidas
   const out={t,v,rule,tOp:0,tOut:0,tTol:0,tGap:0,exc:[],ev:[],ab:[]};
   let cur=null;
@@ -533,7 +579,7 @@ function analyzeTrip(t){
     else causa='Oscilação de carga';
     const nivel=(dur>=CFG.critMin||cur.peak>=CFG.critDev)?'crit':'warn';
     out.exc.push({tipo:'frio',veic:v.id,placa:v.placa,equip:v.equip,unidade:v.unidade,frota:v.frota,drv:t.drv,cli:t.cli,day:t.day,
-      start:cur.start,end:cur.end,dur,peak:cur.peak,peakVal:cur.peakVal,dir:cur.dir,min:rule.min,max:rule.max,probe:cur.pp,
+      start:cur.start,end:cur.end,dur,peak:cur.peak,peakVal:cur.peakVal,dir:cur.dir,min:rp(cur.pp).min,max:rp(cur.pp).max,comp:PC(cur.pp),probe:cur.pp,
       causa,nivel,local:DATA.locs[t.loc[cur.ip]]||'—',door,segs:cur.segs});
     cur=null;
   };
@@ -541,19 +587,20 @@ function analyzeTrip(t){
     if(!shOn(t.tm[i])){close();continue;}
     let dt=i<n-1?t.tm[i+1]-t.tm[i]:STEP, gap=0;
     if(dt>CFG.gap){gap=dt-STEP; dt=STEP;}
-    let hi=-Infinity,lo=Infinity,ph=0,pl=0;
-    for(const p of idx){const x=t.s[p][i];if(x>hi){hi=x;ph=p}if(x<lo){lo=x;pl=p}}
-    const above=Math.max(0,hi-rule.max), below=Math.max(0,rule.min-lo);
+    let ea=-Infinity,pa=0,xa=0,eb=-Infinity,pb=0,xb=0;
+    for(const p of idx){const x=t.s[p][i],r=rp(p);if(x-r.max>ea){ea=x-r.max;pa=p;xa=x;}if(r.min-x>eb){eb=r.min-x;pb=p;xb=x;}}
+    const above=Math.max(0,ea), below=Math.max(0,eb);
     out.tOp+=dt;
     if(above>0||below>0){
       const dev=Math.max(above,below);
       if(!cur) cur={start:t.tm[i],i0:i,dur:0,peak:0,peakVal:0,dir:'',segs:[],ip:i,pp:0};
       cur.dur+=dt; cur.i1=i; cur.end=t.tm[i]+dt; cur.segs.push([t.tm[i],dt]);
-      if(dev>=cur.peak){cur.peak=dev;cur.ip=i;cur.dir=above>=below?'acima':'abaixo';cur.peakVal=above>=below?hi:lo;cur.pp=above>=below?ph:pl;}
+      if(dev>=cur.peak){cur.peak=dev;cur.ip=i;cur.dir=above>=below?'acima':'abaixo';cur.peakVal=above>=below?xa:xb;cur.pp=above>=below?pa:pb;}
     } else close();
     if(gap){ close(); out.tGap+=gap; }
   }
   close();
+  if(lite)return out;
   for(const e of t.ev){if(!shOn(e.m))continue;const d=EVT[e.e];
     out.ev.push({tipo:d.k,veic:v.id,placa:v.placa,equip:v.equip,unidade:v.unidade,frota:v.frota,drv:t.drv,cli:t.cli,day:t.day,
       start:e.m,end:e.m,dur:0,peak:0,peakVal:null,dir:'',min:null,max:null,causa:d.nome,nivel:d.nv,local:DATA.locs[e.loc]||'—',segs:[]});}
@@ -582,13 +629,18 @@ function compute(){
   for(const t of DATA.viagens){
     if(t.day<ST.from||t.day>ST.to) continue;
     if(!veh.has(t.veic)||!ST.cli.has(t.cli)) continue;
-    const a=analyzeTrip(t); if(a&&(a.tOp>0||a.ev.length||a.ab.length)) trips.push(a);
+    const a=analyzeTrip(t);
+    if(a&&hasComp()){a.cp={};for(const c of ['cong','resf']){const ic=probesOf(t).filter(p=>PC(p)===c);if(!ic.length)continue;
+      const ac=analyzeTrip(t,ic,true);a.cp[c]={tOp:ac.tOp,tOut:ac.tOut,nExc:ac.exc.length,nCrit:ac.exc.filter(e=>e.nivel==='crit').length,maxDev:ac.exc.reduce((m,e)=>Math.max(m,e.peak),0)};}}
+    if(a&&(a.tOp>0||a.ev.length||a.ab.length)) trips.push(a);
   }
   const R={trips,exc:[],evs:[],ab:[],tot:{tOp:0,tOut:0,tTol:0,tGap:0,nExc:0,nCrit:0,nWarn:0,maxDev:0,nRisco:0,nAll:0,nAllCrit:0},
     byDay:Array.from({length:NDAYS},()=>({tOp:0,tOut:0})),
-    heat:Array.from({length:NDAYS},()=>new Float32Array(24)),causes:{},vehs:new Map(),drvs:new Map()};
+    heat:Array.from({length:NDAYS},()=>new Float32Array(24)),causes:{},vehs:new Map(),drvs:new Map(),
+    cmp:{cong:{tOp:0,tOut:0,nExc:0,nCrit:0,maxDev:0},resf:{tOp:0,tOut:0,nExc:0,nCrit:0,maxDev:0}}};
   for(const a of trips){
     const T=R.tot; T.tOp+=a.tOp;T.tOut+=a.tOut;T.tTol+=a.tTol;T.tGap+=a.tGap;
+    if(a.cp)for(const c in a.cp){const x=a.cp[c],y=R.cmp[c];y.tOp+=x.tOp;y.tOut+=x.tOut;y.nExc+=x.nExc;y.nCrit+=x.nCrit;y.maxDev=Math.max(y.maxDev,x.maxDev);}
     R.byDay[a.t.day].tOp+=a.tOp; R.byDay[a.t.day].tOut+=a.tOut;
     for(const e of a.exc){
       R.exc.push(e); T.nExc++; e.nivel==='crit'?T.nCrit++:T.nWarn++; T.maxDev=Math.max(T.maxDev,e.peak);
@@ -606,7 +658,8 @@ function compute(){
 }
 function addAgg(map,key,a,extra){
   let g=map.get(key);
-  if(!g){g={key,...extra,tOp:0,tOut:0,tGap:0,nExc:0,nCrit:0,nWarn:0,nRisco:0,maxDev:0,trips:0,tripsBad:0,vehs:new Set(),drvs:new Set()};map.set(key,g);}
+  if(!g){g={key,...extra,tOp:0,tOut:0,tGap:0,nExc:0,nCrit:0,nWarn:0,nRisco:0,maxDev:0,trips:0,tripsBad:0,vehs:new Set(),drvs:new Set(),cp:{cong:{tOp:0,tOut:0},resf:{tOp:0,tOut:0}}};map.set(key,g);}
+  if(a.cp)for(const c in a.cp){g.cp[c].tOp+=a.cp[c].tOp;g.cp[c].tOut+=a.cp[c].tOut;}
   g.tOp+=a.tOp;g.tOut+=a.tOut;g.tGap+=a.tGap;g.trips++;g.vehs.add(a.v.id);g.drvs.add(a.t.drv);
   const eff=a.tOp?100*(1-a.tOut/a.tOp):100; if(eff<CFG.meta) g.tripsBad++;
   for(const e of a.exc){g.nExc++;e.nivel==='crit'?g.nCrit++:g.nWarn++;g.maxDev=Math.max(g.maxDev,e.peak);}
@@ -654,6 +707,7 @@ function initFilters(){
   drawers.push(makeMS('msUni',()=>DATA.unidades.filter(u=>ST.reg.has(u.regiao)),ST.uni));
   drawers.push(makeMS('msFro',()=>DATA.frotas.filter(f=>ST.reg.has(UNI[f.unidade].regiao)&&ST.uni.has(f.unidade)),ST.fro));
   drawers.push(makeMS('msCli',()=>DATA.clientes.map(c=>({id:c.id,nome:c.nome+(c.carga?' · '+c.carga:'')})),ST.cli));
+  drawers.push(makeMS('msCp',()=>[{id:'cong',nome:'Congelado'},{id:'resf',nome:'Resfriado'}],ST.cp));
   drawers.push(makeMS('msPr',()=>Array.from({length:NPROBES},(_,i)=>({id:String(i),nome:'Sonda '+pn(i)})),ST.pr));
   $('#chipsEq').innerHTML=EQUIPS.map(e=>`<span class="chip" data-e="${esc(e)}">${esc(e)}</span>`).join('');
   $('#chipsEq').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;const k=c.dataset.e;ST.eq.has(k)?ST.eq.delete(k):ST.eq.add(k);refresh();};
@@ -722,9 +776,24 @@ function initCfg(){
   bind('gMin','min');bind('gMax','max');bind('gTol','tol');bind('gMeta','meta');bind('gCritMin','critMin');bind('gCritDev','critDev');bind('gGap','gap');bind('gPost','post');bind('gLoss','lossMax');
   $('#segMode').onclick=e=>{const b=e.target.closest('button');if(b){CFG.mode=b.dataset.v;saveCfg();refresh();}};
   $('#btnReset').onclick=()=>{CFG=JSON.parse(JSON.stringify(CFG_DEFAULT));saveCfg();syncCfg();refresh();};
+  $('#cfgComp').onchange=e=>{const t=e.target,cc=normCC();while(cc.pcomp.length<NPROBES)cc.pcomp.push('');
+    if(t.dataset.cc)cc[t.dataset.cc][t.dataset.k]=Number(t.value);
+    else if(t.dataset.pc!==undefined)cc.pcomp[Number(t.dataset.pc)]=t.value;
+    else if(t.id==='ccCause')cc.showCauses=t.checked;
+    persistCurrent();refresh();};
   $('#tblProfiles').onchange=e=>{const t=e.target;if(!t.dataset.c)return;(CFG.prof[t.dataset.c]=CFG.prof[t.dataset.c]||{})[t.dataset.k]=Number(t.value);saveCfg();refresh();};
 }
+function renderCfgComp(){
+  const cc=normCC(),opt=(v,l,s)=>`<option value="${v}" ${s===v?'selected':''}>${l}</option>`;
+  let h='<div class="cfgrow">';
+  ['cong','resf'].forEach(k=>{h+=`<div class="fld"><label>${CPN[k]} — mín °C</label><input type="number" step="0.5" data-cc="${k}" data-k="min" value="${cc[k].min}"></div><div class="fld"><label>${CPN[k]} — máx °C</label><input type="number" step="0.5" data-cc="${k}" data-k="max" value="${cc[k].max}"></div>`;});
+  for(let i=0;i<NPROBES;i++){const s=cc.pcomp[i]||'';h+=`<div class="fld"><label>Sonda ${pn(i)} é</label><select data-pc="${i}">${opt('','Faixa do cliente',s)}${opt('resf','Resfriado',s)}${opt('cong','Congelado',s)}</select></div>`;}
+  h+=`<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-top:18px"><input type="checkbox" id="ccCause" ${cc.showCauses?'checked':''}> Mostrar o painel “Por que sai da faixa?”</label></div>`;
+  $('#cfgComp').innerHTML=h;
+}
+async function persistCurrent(){try{const id=await idb('readonly',s=>s.get('current'));if(!id||!DATA.meta)return;await idb('readwrite',s=>s.put({DAY0,NDAYS,DATA,EVT,EQUIPS,NPROBES,PNUM},id),'rep');}catch(e){}}
 function syncCfg(){
+  renderCfgComp();
   ['gMin:min','gMax:max','gTol:tol','gMeta:meta','gCritMin:critMin','gCritDev:critDev','gGap:gap','gPost:post','gLoss:lossMax'].forEach(s=>{const [i,k]=s.split(':');$('#'+i).value=CFG[k];});
   document.querySelectorAll('#segMode button').forEach(b=>b.classList.toggle('on',b.dataset.v===CFG.mode));
   const g=CFG.mode==='global';
@@ -751,7 +820,7 @@ function statusTag(eff){
 function effBar(eff){
   const c=eff>=CFG.meta?'var(--ok)':eff>=CFG.meta-10?'var(--warn)':'var(--crit)';
   return `<div style="display:flex;gap:8px;align-items:center"><div class="bar" style="flex:1"><i style="width:${isFinite(eff)?eff:0}%;background:${c}"></i><u style="left:${CFG.meta}%"></u></div><b style="min-width:52px;text-align:right">${pct(eff)}</b></div>`;}
-function rangeText(){return CFG.mode==='global'?`${String(CFG.min).replace('.',',')} a ${String(CFG.max).replace('.',',')} °C (faixa única)`:'faixa de cada cliente / carga';}
+function rangeText(){if(hasComp())return ccText(DATA.cc);return CFG.mode==='global'?`${String(CFG.min).replace('.',',')} a ${String(CFG.max).replace('.',',')} °C (faixa única)`:'faixa de cada cliente / carga';}
 function periodLabel(){
   if(ST.ptype==='custom')return fmtD(ST.from)+' a '+fmtD(ST.to);
   const o=periodOptions(ST.ptype).find(x=>x.id===ST.pid);return o?o.label:fmtD(ST.from)+' a '+fmtD(ST.to);}
@@ -763,7 +832,7 @@ function probesLabel(){
 function refresh(keepDrawer){
   syncCfg();syncFilters();
   const R=compute();LAST=R;
-  renderKpis(R);renderStats(R);
+  renderKpis(R);renderComp(R);renderStats(R);
   renderFocusControls(R);renderChart(R);renderMeta(R);renderCauses(R);renderAb(R);
   renderRank(R);renderDrivers(R);renderHeat(R);renderOcc(R);renumber();fitSvgs();fixTables();
   if(!keepDrawer&&$('#drawer').classList.contains('open'))drawVehList();
@@ -786,6 +855,19 @@ function renderKpis(R){
    (CAPS.motorista?k(badD?'bad':'good','Motoristas abaixo da meta',`${badD} de ${ds.length}`,'consolidado das viagens'):k('','Viagens analisadas',R.trips.length,'janelas de operação no período'))+
    k(T.maxDev>=CFG.critDev?'bad':T.maxDev?'mid':'good','Maior desvio',T.nExc?'+'+String(Math.round(T.maxDev*10)/10).replace('.',',')+' °C':'—','além do limite da faixa')+
    k(T.tGap?'mid':'good','Sem sinal',fmtDur(T.tGap),'sem leitura de temperatura');
+}
+
+/* ---- por compartimento ---- */
+function renderComp(R){
+  const box=$('#compCards');
+  if(!hasComp()){box.innerHTML='';box.classList.add('hide');return;}
+  box.classList.remove('hide');const cc=normCC();
+  const card=(tit,fx,x)=>{const e=x.tOp?100*(1-x.tOut/x.tOp):NaN,cls=!isFinite(e)?'':e>=CFG.meta?'good':e>=CFG.meta-10?'mid':'bad';
+    return `<div class="card kpi ${cls}"><div class="lbl">${tit}</div><div class="val">${pct(e)}</div><div class="sub">${fx}</div><div style="margin:8px 0 6px">${effBar(e)}</div>
+    <div class="sub">${x.tOp?`Fora da faixa: ${fmtDur(x.tOut)} · ${x.nExc} ocorrência(s)${x.nExc?' · maior desvio +'+String(Math.round(x.maxDev*10)/10).replace('.',','):''} °C`.replace(/ °C$/,x.nExc?' °C':''):'Sem leituras neste recorte'}</div></div>`;};
+  let h=card('Compilado — todos os compartimentos','Fora da faixa em qualquer compartimento',{tOp:R.tot.tOp,tOut:R.tot.tOut,nExc:R.tot.nExc,maxDev:R.tot.maxDev});
+  ['cong','resf'].forEach(c=>{if(cc.pcomp.includes(c))h+=card(CPN[c],'Faixa '+fmtR(cc[c].min)+' a '+fmtR(cc[c].max)+' °C',R.cmp[c]);});
+  box.innerHTML=h;
 }
 
 /* ---- resumo retrátil ---- */
@@ -819,8 +901,9 @@ function renderFocusControls(R){
   else if(cids.length===1){const p=profileOf(cids[0]);mn=p.min;mx=p.max}
   else if(cids.length>1){const p=profileOf(cids[0]);mn=p.min;mx=p.max;dis=true}
   else{mn=mx='';dis=true}
+  if(hasComp()){mn=mx='';dis=true;}
   $('#cMin').value=mn;$('#cMax').value=mx;$('#cMin').disabled=$('#cMax').disabled=dis;
-  $('#cMin').title=$('#cMax').title=dis?'Este recorte tem mais de um cliente: ajuste em “Faixa e regras”.':'Edite para mudar a faixa e recalcular tudo';
+  $('#cMin').title=$('#cMax').title=dis?(hasComp()?'Há faixas por compartimento: ajuste em “Faixa e regras”.':'Este recorte tem mais de um cliente: ajuste em “Faixa e regras”.'):'Edite para mudar a faixa e recalcular tudo';
   const apply=()=>{const a=Number($('#cMin').value),b=Number($('#cMax').value);
     if(CFG.mode==='global'){CFG.min=a;CFG.max=b}else if(cids.length===1){CFG.prof[cids[0]]=Object.assign(CFG.prof[cids[0]]||{},{min:a,max:b})}
     saveCfg();refresh();};
@@ -830,17 +913,25 @@ function focusTrips(R){return R.trips.filter(a=>(ST.focus==='all'||a.t.veic===ST
 /* ---- gráfico principal (até 5 sondas) ---- */
 const PDASH=['','7 3','2 3','9 3 2 3','12 4'];
 function niceStep(span){const raw=span/6,p=Math.pow(10,Math.floor(Math.log10(raw))),f=raw/p;return (f<=1?1:f<=2?2:f<=5?5:10)*p;}
+function chartRules(a,NP){
+  const one=[{lab:'',min:a.rule.min,max:a.rule.max,fill:'var(--band)'}];
+  if(!hasComp())return one;
+  const out=[],seen=new Set();
+  for(let p=0;p<NP;p++){if(!ST.pr.has(String(p)))continue;const c=PC(p);if(c&&!ST.cp.has(c))continue;if(seen.has(c))continue;seen.add(c);
+    const r=c?DATA.cc[c]:a.rule;out.push({lab:c?CPN[c].slice(0,4)+'. ':'',min:r.min,max:r.max,fill:c==='cong'?'rgba(59,130,246,.14)':'var(--band)'});}
+  return out.length?out:one;
+}
 function renderChart(R){
   const box=$('#chart');const trips=focusTrips(R);
   if(!trips.length){box.innerHTML='<div class="hint" style="padding:30px;text-align:center">Sem viagens para o veículo escolhido neste período (ou ele não tem as sondas selecionadas).</div>';$('#chartHint').textContent='—';$('#chartLegend').innerHTML='';return;}
   if(ST.focus==='all')return renderChartAll(R,trips);
   const v=VEI[ST.focus],NP=v.sondas;
-  const W=Math.max(360,box.clientWidth||900),H=380,m={l:48,r:92,t:12,b:34},pw=W-m.l-m.r,ph=H-m.t-m.b;
+  const W=Math.max(360,box.clientWidth||900),H=380,m={l:48,r:hasComp()?124:92,t:12,b:34},pw=W-m.l-m.r,ph=H-m.t-m.b;
   const GAPW=40;let off=0;const segs=[];
   for(const a of trips){const t=a.t,span=t.tm[t.tm.length-1]-t.tm[0]+STEP;segs.push({a,off,span});off+=span+GAPW;}
   const total=off-GAPW;
   let lo=Infinity,hi=-Infinity;
-  for(const s of segs){const t=s.a.t;for(let p=0;p<NP;p++)for(let i=0;i<t.tm.length;i++){const x=t.s[p][i];if(x<lo)lo=x;if(x>hi)hi=x;}lo=Math.min(lo,s.a.rule.min);hi=Math.max(hi,s.a.rule.max);}
+  for(const s of segs){const t=s.a.t;for(let p=0;p<NP;p++)for(let i=0;i<t.tm.length;i++){const x=t.s[p][i];if(x<lo)lo=x;if(x>hi)hi=x;}for(const q of chartRules(s.a,NP)){lo=Math.min(lo,q.min);hi=Math.max(hi,q.max);}}
   const step=niceStep(hi-lo);lo=Math.floor((lo-step*.3)/step)*step;hi=Math.ceil((hi+step*.3)/step)*step;
   const X=(s,m_)=>m.l+(s.off+(m_-s.a.t.tm[0]))/total*pw, Y=val=>m.t+(hi-val)/(hi-lo)*ph;
   let g='';
@@ -848,21 +939,21 @@ function renderChart(R){
   g+=`<text x="12" y="${m.t+ph/2}" transform="rotate(-90 12 ${m.t+ph/2})" text-anchor="middle">Temperatura (°C)</text>`;
   const multiDay=segs.length>1, segW=pw/segs.length, every=Math.max(1,Math.ceil(34/segW));
   segs.forEach((s,si)=>{const t=s.a.t,x0=X(s,t.tm[0]),x1=X(s,t.tm[0]+s.span),r=s.a.rule;
-    g+=`<rect x="${x0}" y="${Y(r.max)}" width="${x1-x0}" height="${Y(r.min)-Y(r.max)}" fill="var(--band)"/>`;
+    const CR=chartRules(s.a,NP);for(const q of CR)g+=`<rect x="${x0}" y="${Y(q.max)}" width="${x1-x0}" height="${Y(q.min)-Y(q.max)}" fill="${q.fill}"/>`;
     if(!shAll())for(let i=0;i<t.tm.length;i++)if(!shOn(t.tm[i])){const xa=X(s,t.tm[i]),xb=X(s,i+1<t.tm.length?t.tm[i+1]:t.tm[i]+STEP);g+=`<rect x="${xa}" y="${m.t}" width="${Math.max(1,xb-xa)}" height="${ph}" fill="var(--ink3)" opacity=".28"/>`;}
     for(const e of s.a.exc){const xa=X(s,e.start),xb=X(s,e.end);g+=`<rect x="${xa}" y="${m.t}" width="${Math.max(2,xb-xa)}" height="${ph}" fill="var(--crit)" opacity=".13"/>`;}
     for(let i=0;i<t.tm.length-1;i++){if(t.tm[i+1]-t.tm[i]>CFG.gap){const xa=X(s,t.tm[i]),xb=X(s,t.tm[i+1]);g+=`<rect x="${xa}" y="${m.t}" width="${xb-xa}" height="${ph}" fill="var(--ink3)" opacity=".15"/>`;}}
     for(let i=0;i<t.tm.length;i++)if(t.door[i])g+=`<rect x="${X(s,t.tm[i])-1.5}" y="${m.t+ph-7}" width="${Math.max(3,STEP/total*pw)}" height="7" rx="2" fill="var(--warn)"/>`;
-    g+=`<line x1="${x0}" x2="${x1}" y1="${Y(r.max)}" y2="${Y(r.max)}" stroke="var(--crit)" stroke-width="2" stroke-dasharray="6 4"/>`;
-    g+=`<line x1="${x0}" x2="${x1}" y1="${Y(r.min)}" y2="${Y(r.min)}" stroke="var(--s1)" stroke-width="2" stroke-dasharray="6 4"/>`;
+    for(const q of CR){g+=`<line x1="${x0}" x2="${x1}" y1="${Y(q.max)}" y2="${Y(q.max)}" stroke="var(--crit)" stroke-width="2" stroke-dasharray="6 4"/>`;
+      g+=`<line x1="${x0}" x2="${x1}" y1="${Y(q.min)}" y2="${Y(q.min)}" stroke="var(--s1)" stroke-width="2" stroke-dasharray="6 4"/>`;}
     for(let p=NP-1;p>=0;p--){
       let d='';for(let i=0;i<t.tm.length;i++){const brk=i>0&&t.tm[i]-t.tm[i-1]>CFG.gap;d+=(i===0||brk?'M':'L')+X(s,t.tm[i]).toFixed(1)+' '+Y(t.s[p][i]).toFixed(1)+' ';}
       g+=`<path d="${d}" fill="none" stroke="var(--p${p+1})" stroke-width="${p===0?2:1.6}" ${PDASH[p]?`stroke-dasharray="${PDASH[p]}"`:''} opacity="${ST.pr.has(String(p))?1:.22}" stroke-linejoin="round"/>`;}
     if(multiDay){if(si%every===0)g+=`<text x="${(x0+x1)/2}" y="${H-12}" text-anchor="middle">${fmtD(t.day)}</text>`;}
   });
   if(!multiDay){const s=segs[0];for(let m_=Math.ceil(s.a.t.tm[0]/60)*60;m_<s.a.t.tm[0]+s.span;m_+=60){const x=X(s,m_);g+=`<line x1="${x}" x2="${x}" y1="${m.t+ph}" y2="${m.t+ph+4}" stroke="var(--ink3)"/><text x="${x}" y="${H-12}" text-anchor="middle">${fmtT(m_%1440)}</text>`;}}
-  const last=segs[segs.length-1].a.rule;
-  g+=`<text x="${W-m.r+6}" y="${Y(last.max)+4}" style="fill:var(--crit);font-weight:700">máx ${last.max>0?'+':''}${last.max} °C</text><text x="${W-m.r+6}" y="${Y(last.min)+4}" style="fill:var(--s1);font-weight:700">mín ${last.min>0?'+':''}${last.min} °C</text>`;
+  for(const q of chartRules(segs[segs.length-1].a,NP)){
+    g+=`<text x="${W-m.r+6}" y="${Y(q.max)+4}" style="fill:var(--crit);font-weight:700">${q.lab}máx ${q.max>0?'+':''}${q.max} °C</text><text x="${W-m.r+6}" y="${Y(q.min)+4}" style="fill:var(--s1);font-weight:700">${q.lab}mín ${q.min>0?'+':''}${q.min} °C</text>`;}
   g+=`<line id="xh" x1="0" x2="0" y1="${m.t}" y2="${m.t+ph}" stroke="var(--ink)" stroke-width="1" opacity="0"/><rect id="hit" x="${m.l}" y="${m.t}" width="${pw}" height="${ph}" fill="transparent"/>`;
   box.innerHTML=`<svg class="hov" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Curva de temperatura">${g}</svg>`;
   const svg=box.firstChild,xh=svg.querySelector('#xh');
@@ -871,13 +962,13 @@ function renderChart(R){
     for(const s of segs){const t=s.a.t;for(let i=0;i<t.tm.length;i++){const d=Math.abs(X(s,t.tm[i])-px);if(d<bd){bd=d;best={s,i};}}}
     if(!best)return;const {s,i}=best,t=s.a.t,r=s.a.rule,x=X(s,t.tm[i]);
     xh.setAttribute('x1',x);xh.setAttribute('x2',x);xh.setAttribute('opacity',.5);
-    let rows='';for(let p=0;p<NP;p++){const val=t.s[p][i],ok=val>=r.min&&val<=r.max,on=ST.pr.has(String(p));
-      rows+=`<br><span style="color:var(--p${p+1})">●</span> Sonda ${pn(p)}: <b>${fmtC(val)}</b> ${on?(ok?'✓':'⚠'):'<i>(não avaliada)</i>'}`;}
-    showTip(`<b>${fmtDT(t.tm[i])}</b>${rows}<br>Faixa: ${r.min} a ${r.max} °C<br>Baú: ${t.door[i]?'aberto':'fechado'} · ${t.spd[i]} km/h<br>${esc(DATA.locs[t.loc[i]])}`,ev.clientX,ev.clientY);};
+    let rows='';for(let p=0;p<NP;p++){const val=t.s[p][i],rr=ruleP(p,r),ok=val>=rr.min&&val<=rr.max,on=ST.pr.has(String(p))&&(!PC(p)||ST.cp.has(PC(p)));
+      rows+=`<br><span style="color:var(--p${p+1})">●</span> Sonda ${pn(p)}${PC(p)?' ('+CPN[PC(p)]+')':''}: <b>${fmtC(val)}</b> ${on?(ok?'✓':'⚠'):'<i>(não avaliada)</i>'}`;}
+    showTip(`<b>${fmtDT(t.tm[i])}</b>${rows}<br>Faixa: ${chartRules(s.a,NP).map(q=>q.lab+q.min+' a '+q.max).join(' · ')} °C<br>Baú: ${t.door[i]?'aberto':'fechado'} · ${t.spd[i]} km/h<br>${esc(DATA.locs[t.loc[i]])}`,ev.clientX,ev.clientY);};
   svg.querySelector('#hit').onmouseleave=()=>{xh.setAttribute('opacity',0);hideTip();};
   const g1=R.vehs.get(ST.focus);
   $('#chartHint').innerHTML=`<b>${v.placa}</b> · ${esc(v.equip)} · ${esc(UNI[v.unidade].nome)} · ${NP} sonda(s) · ${segs.length} viagem(ns) · efetividade ${pct(effOf(g1))} · ${statusTag(effOf(g1))}`;
-  let lg='';for(let p=0;p<NP;p++)lg+=`<span style="${ST.pr.has(String(p))?'':'opacity:.5'}"><i style="height:0;border-top:3px ${PDASH[p]?'dashed':'solid'} var(--p${p+1});background:none"></i>Sonda ${pn(p)}</span>`;
+  let lg='';for(let p=0;p<NP;p++)lg+=`<span style="${ST.pr.has(String(p))?'':'opacity:.5'}"><i style="height:0;border-top:3px ${PDASH[p]?'dashed':'solid'} var(--p${p+1});background:none"></i>Sonda ${pn(p)}${PC(p)?' · '+CPN[PC(p)]:''}</span>`;
   $('#chartLegend').innerHTML=lg+(shAll()?'':'<span><i style="background:var(--ink3);opacity:.35;height:10px"></i>Fora do turno (não avaliado)</span>')+`<span><i style="background:var(--ok);opacity:.35;height:10px"></i>Faixa permitida</span><span><i style="height:0;border-top:2px dashed var(--crit);background:none"></i>Limite máximo</span><span><i style="height:0;border-top:2px dashed var(--s1);background:none"></i>Limite mínimo</span><span><i style="background:var(--crit);opacity:.3;height:10px"></i>Ocorrência</span><span><i style="background:var(--warn);height:7px"></i>Baú aberto / descarga</span><span><i style="background:var(--ink3);opacity:.4;height:10px"></i>Sem sinal</span>`;
 }
 
@@ -885,47 +976,55 @@ function renderChart(R){
 function renderChartAll(R,trips){
   const box=$('#chart'),W=Math.max(360,box.clientWidth||900),H=380,m={l:48,r:20,t:12,b:34},pw=W-m.l-m.r,ph=H-m.t-m.b;
   const sel=[...ST.pr].map(Number);
-  const val=(t,i)=>{let s=0,n=0;const NP=VEI[t.veic].sondas;for(const p of sel)if(p<NP){s+=t.s[p][i];n++;}return n?s/n:t.s[0][i];};
+  /* uma linha por viagem — ou por viagem e compartimento, quando há dois compartimentos */
+  const items=[];
+  for(const a of trips){const t=a.t,NP=VEI[t.veic].sondas,sp=sel.filter(p=>p<NP&&(!PC(p)||ST.cp.has(PC(p))));
+    if(hasComp()){const gr={};for(const p of sp)(gr[PC(p)]=gr[PC(p)]||[]).push(p);
+      for(const k in gr)items.push({a,t,ps:gr[k],c:k,rule:k?{min:DATA.cc[k].min,max:DATA.cc[k].max,tol:a.rule.tol}:a.rule});}
+    else items.push({a,t,ps:sp.length?sp:[0],c:'',rule:a.rule});}
+  const val=(it,i)=>{let s=0;for(const p of it.ps)s+=it.t.s[p][i];return s/it.ps.length;};
   let t0=Infinity,t1=-Infinity,lo=Infinity,hi=-Infinity;
-  for(const a of trips){const t=a.t;t0=Math.min(t0,t.tm[0]);t1=Math.max(t1,t.tm[t.tm.length-1]+STEP);
-    for(let i=0;i<t.tm.length;i++){const x=val(t,i);if(x<lo)lo=x;if(x>hi)hi=x;}lo=Math.min(lo,a.rule.min);hi=Math.max(hi,a.rule.max);}
+  for(const it of items){const t=it.t;t0=Math.min(t0,t.tm[0]);t1=Math.max(t1,t.tm[t.tm.length-1]+STEP);
+    for(let i=0;i<t.tm.length;i++){const x=val(it,i);if(x<lo)lo=x;if(x>hi)hi=x;}lo=Math.min(lo,it.rule.min);hi=Math.max(hi,it.rule.max);}
+  if(!items.length||!isFinite(lo)){box.innerHTML='<div class="hint" style="padding:30px;text-align:center">Sem dados para as sondas/compartimentos escolhidos.</div>';return;}
   const step=niceStep(hi-lo);lo=Math.floor((lo-step*.3)/step)*step;hi=Math.ceil((hi+step*.3)/step)*step;
   const X=mm=>m.l+(mm-t0)/(t1-t0)*pw,Y=v=>m.t+(hi-v)/(hi-lo)*ph;
-  const same=trips.every(a=>a.rule.min===trips[0].rule.min&&a.rule.max===trips[0].rule.max),r0=trips[0].rule;
+  const uq=new Map();for(const it of items){const k=it.rule.min+'|'+it.rule.max+'|'+it.c;if(!uq.has(k))uq.set(k,it);}
   let g='';
   for(let v=lo;v<=hi+1e-9;v+=step)g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${m.l-8}" y="${Y(v)+4}" text-anchor="end">${Math.round(v*10)/10}</text>`;
   g+=`<text x="12" y="${m.t+ph/2}" transform="rotate(-90 12 ${m.t+ph/2})" text-anchor="middle">Temperatura (°C)</text>`;
-  if(same)g+=`<rect x="${m.l}" y="${Y(r0.max)}" width="${pw}" height="${Y(r0.min)-Y(r0.max)}" fill="var(--band)"/><line x1="${m.l}" x2="${W-m.r}" y1="${Y(r0.max)}" y2="${Y(r0.max)}" stroke="var(--crit)" stroke-width="2" stroke-dasharray="6 4"/><line x1="${m.l}" x2="${W-m.r}" y1="${Y(r0.min)}" y2="${Y(r0.min)}" stroke="var(--s1)" stroke-width="2" stroke-dasharray="6 4"/>`;
+  if(uq.size<=3)for(const it of uq.values()){const r=it.rule;
+    g+=`<rect x="${m.l}" y="${Y(r.max)}" width="${pw}" height="${Y(r.min)-Y(r.max)}" fill="${it.c==='cong'?'rgba(59,130,246,.14)':'var(--band)'}"/><line x1="${m.l}" x2="${W-m.r}" y1="${Y(r.max)}" y2="${Y(r.max)}" stroke="var(--crit)" stroke-width="2" stroke-dasharray="6 4"/><line x1="${m.l}" x2="${W-m.r}" y1="${Y(r.min)}" y2="${Y(r.min)}" stroke="var(--s1)" stroke-width="2" stroke-dasharray="6 4"/>`;}
   const d0=Math.floor(t0/1440),d1=Math.floor((t1-1)/1440),nd=d1-d0+1;
   if(nd<=1){for(let mm=Math.ceil(t0/60)*60;mm<t1;mm+=60)g+=`<line x1="${X(mm)}" x2="${X(mm)}" y1="${m.t+ph}" y2="${m.t+ph+4}" stroke="var(--ink3)"/><text x="${X(mm)}" y="${H-12}" text-anchor="middle">${fmtT(mm%1440)}</text>`;}
   else{const every=Math.max(1,Math.ceil(34/(pw/nd)));for(let d=d0;d<=d1;d++){const xa=X(Math.max(t0,d*1440)),xb=X(Math.min(t1,(d+1)*1440));
     g+=`<line x1="${xa}" x2="${xa}" y1="${m.t}" y2="${m.t+ph}" stroke="var(--line)"/>`;if((d-d0)%every===0)g+=`<text x="${(xa+xb)/2}" y="${H-12}" text-anchor="middle">${fmtD(d)}</text>`;}}
   let gray='',red='';
-  for(const a of trips){const t=a.t,r=a.rule;let dg='',dr='',prevOut=false;
-    for(let i=0;i<t.tm.length;i++){const brk=i>0&&t.tm[i]-t.tm[i-1]>CFG.gap,on=shOn(t.tm[i]);if(!on){prevOut=false;dg+='';continue;}
-      const v=val(t,i),out=v<r.min||v>r.max,px=X(t.tm[i]).toFixed(1)+' '+Y(v).toFixed(1)+' ';
+  for(const it of items){const t=it.t,r=it.rule;let dg='',dr='',prevOut=false;
+    for(let i=0;i<t.tm.length;i++){const brk=i>0&&t.tm[i]-t.tm[i-1]>CFG.gap,on=shOn(t.tm[i]);if(!on){prevOut=false;continue;}
+      const v=val(it,i),out=v<r.min||v>r.max,px=X(t.tm[i]).toFixed(1)+' '+Y(v).toFixed(1)+' ';
       dg+=(i===0||brk||!shOn(t.tm[i-1])?'M':'L')+px;
       if(out){dr+=(prevOut&&!brk?'L':'M')+px;prevOut=true;}else prevOut=false;}
-    gray+=`<path d="${dg}" fill="none" stroke="var(--p1)" stroke-width="1.1" opacity=".55" stroke-linejoin="round"/>`;
+    gray+=`<path d="${dg}" fill="none" stroke="${it.c==='cong'?'var(--p2)':'var(--p1)'}" stroke-width="1.1" opacity=".6" stroke-linejoin="round"/>`;
     red+=`<path d="${dr}" fill="none" stroke="var(--crit)" stroke-width="1.8" stroke-linejoin="round"/>`;}
   let lab='';
-  if(trips.length<=12){const used=[];for(const a of trips){const t=a.t;let k=0;while(k<t.tm.length&&!shOn(t.tm[k]))k++;if(k>=t.tm.length)continue;
-    let x=X(t.tm[k]),y=Y(val(t,k))-7;for(const u of used)if(Math.abs(u.x-x)<46&&Math.abs(u.y-y)<12)y=u.y-12;used.push({x,y});
-    lab+=`<text x="${x}" y="${y}" style="font-size:10.5px;font-weight:700;fill:var(--ink)" paint-order="stroke" stroke="var(--card,#fff)" stroke-width="3">${VEI[t.veic].placa}</text>`;}}
+  if(items.length<=12){const used=[];for(const it of items){const t=it.t;let k=0;while(k<t.tm.length&&!shOn(t.tm[k]))k++;if(k>=t.tm.length)continue;
+    const x=X(t.tm[k]);let y=Y(val(it,k))-7;for(const u of used)if(Math.abs(u.x-x)<46&&Math.abs(u.y-y)<12)y=u.y-12;used.push({x,y});
+    lab+=`<text x="${x}" y="${y}" style="font-size:10.5px;font-weight:700;fill:var(--ink)" paint-order="stroke" stroke="var(--card,#fff)" stroke-width="3">${VEI[t.veic].placa}${it.c?' · '+CPN[it.c].slice(0,4)+'.':''}</text>`;}}
   g+=gray+red+lab+`<line id="xh" x1="0" x2="0" y1="${m.t}" y2="${m.t+ph}" stroke="var(--ink)" opacity="0"/><rect id="hit" x="${m.l}" y="${m.t}" width="${pw}" height="${ph}" fill="transparent"/>`;
   box.innerHTML=`<svg class="hov" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Curva de temperatura de todos os veículos">${g}</svg>`;
   const svg=box.firstChild,xh=svg.querySelector('#xh');
   svg.querySelector('#hit').onmousemove=ev=>{
     const rc=svg.getBoundingClientRect(),px=ev.clientX-rc.left,py=ev.clientY-rc.top;let best=null,bd=1e9;
-    for(const a of trips){const t=a.t;for(let i=0;i<t.tm.length;i+=1){const dx=X(t.tm[i])-px;if(Math.abs(dx)>12)continue;const d=Math.hypot(dx,Y(val(t,i))-py);if(d<bd){bd=d;best={a,i};}}}
+    for(const it of items){const t=it.t;for(let i=0;i<t.tm.length;i++){const dx=X(t.tm[i])-px;if(Math.abs(dx)>12)continue;const d=Math.hypot(dx,Y(val(it,i))-py);if(d<bd){bd=d;best={it,i};}}}
     if(!best){xh.setAttribute('opacity',0);hideTip();return;}
-    const {a,i}=best,t=a.t,r=a.rule,v=val(t,i),ok=v>=r.min&&v<=r.max;
+    const {it,i}=best,t=it.t,r=it.rule,v=val(it,i),ok=v>=r.min&&v<=r.max;
     xh.setAttribute('x1',X(t.tm[i]));xh.setAttribute('x2',X(t.tm[i]));xh.setAttribute('opacity',.5);
-    showTip(`<b>${VEI[t.veic].placa}</b> · ${fmtDT(t.tm[i])}<br>Temperatura: <b>${fmtC(v)}</b> ${ok?'✓':'⚠'}<br>Faixa: ${r.min} a ${r.max} °C<br>Baú: ${t.door[i]?'aberto':'fechado'} · ${t.spd[i]} km/h`,ev.clientX,ev.clientY);};
+    showTip(`<b>${VEI[t.veic].placa}</b> · ${fmtDT(t.tm[i])}<br>${it.c?CPN[it.c]+': ':'Temperatura: '}<b>${fmtC(v)}</b> ${ok?'✓':'⚠'}<br>Faixa: ${r.min} a ${r.max} °C<br>Baú: ${t.door[i]?'aberto':'fechado'} · ${t.spd[i]} km/h`,ev.clientX,ev.clientY);};
   svg.querySelector('#hit').onmouseleave=()=>{xh.setAttribute('opacity',0);hideTip();};
   const nv=new Set(trips.map(a=>a.t.veic)).size;
-  $('#chartHint').innerHTML=`<b>Todos os veículos</b> · ${nv} veículo(s) · ${trips.length} viagem(ns) · cada linha é uma viagem de um veículo (a placa aparece no início da linha; média das sondas selecionadas); trechos em vermelho estão fora da faixa`;
-  $('#chartLegend').innerHTML=`<span><i style="height:0;border-top:3px solid var(--p1);background:none"></i>Viagem (dentro da faixa)</span><span><i style="height:0;border-top:3px solid var(--crit);background:none"></i>Fora da faixa</span>`+(shAll()?'':'<span>Horários fora do turno não são exibidos</span>')+(same?'':'<span>Faixas diferentes por cliente</span>');
+  $('#chartHint').innerHTML=`<b>Todos os veículos</b> · ${nv} veículo(s) · ${trips.length} viagem(ns) · cada linha é uma viagem${hasComp()?' de um compartimento':''} (placa no início da linha; média das sondas); trechos em vermelho estão fora da faixa`;
+  $('#chartLegend').innerHTML=`<span><i style="height:0;border-top:3px solid var(--p1);background:none"></i>${hasComp()?'Resfriado / faixa do cliente':'Viagem (dentro da faixa)'}</span>`+(hasComp()?`<span><i style="height:0;border-top:3px solid var(--p2);background:none"></i>Congelado</span>`:'')+`<span><i style="height:0;border-top:3px solid var(--crit);background:none"></i>Fora da faixa</span>`+(shAll()?'':'<span>Horários fora do turno não são exibidos</span>')+(uq.size>3?'<span>Faixas diferentes por cliente</span>':'');
 }
 
 /* ---- cumprimento da meta ---- */
@@ -956,6 +1055,9 @@ function renderMeta(R){
 }
 
 function renderCauses(R){
+  const sc=showCause();$('#secCauses').classList.toggle('hide',!sc);$('#gridMeta').style.gridTemplateColumns=sc?'':'minmax(0,1fr)';
+  const ey=$('#gridMeta').previousElementSibling;if(ey)ey.textContent=sc?'Meta e causas':'Meta';
+  if(!sc){$('#causes').innerHTML='';return;}
   const ent=Object.entries(R.causes).sort((a,b)=>b[1]-a[1]),tot=R.tot.tOut||1;
   $('#causes').innerHTML=ent.length?ent.map(([c,m])=>`<div style="margin:14px 0"><div style="display:flex;justify-content:space-between;gap:8px"><b>${c}</b><span>${fmtDur(m)} · ${pct(100*m/tot)}</span></div><div class="bar" style="height:10px;margin-top:5px"><i style="width:${100*m/tot}%;background:var(--s1)"></i></div></div>`).join('')+'<div class="hint" style="margin-top:16px">Causa provável por regra automática (início de viagem, duração, porta aberta, recorrência). Valide com o operador.</div>':'<div class="hint">Sem ocorrências de frio no recorte.</div>';
 }
@@ -1021,11 +1123,12 @@ function renderAb(R){
   $('#tblAb').onclick=ev=>{const tr=ev.target.closest('tr.clk');if(!tr||!LAST.vehs.has(tr.dataset.v))return;ST.focus=tr.dataset.v;ST.focusDay=tr.dataset.d;renderFocusControls(LAST);renderChart(LAST);$('#chart').scrollIntoView({behavior:'smooth',block:'center'});};
 }
 /* ---- ranking por agrupamento ---- */
+const cpCell=(g,c)=>{const x=g.cp[c],e=x.tOp?100*(1-x.tOut/x.tOp):NaN;return `<td>${x.tOp?`<b style="color:var(--${e>=CFG.meta?'ok':'crit'})">${pct(e)}</b>`:'—'}</td>`;};
 function renderRank(R){
   $('#grpTitle').textContent=ST.group==='total'?'— consolidado total':'por '+GROUPS[ST.group].toLowerCase();
   const rows=groupRows(R,ST.group);
-  $('#tblRank').innerHTML=`<tr><th>${GROUPS[ST.group]}</th><th>Veículos</th><th>Viagens</th><th style="min-width:210px">Efetividade (meta ${CFG.meta}%)</th><th>Fora da faixa</th><th>Frio</th><th>Risco</th><th>Críticas</th><th>Maior desvio</th><th>Situação</th></tr>`+
-  (rows.map(g=>`<tr class="${ST.group==='total'?'':'clk'}" data-k="${esc(g.key)}"><td><b>${esc(g.label)}</b></td><td>${g.vehs.size}</td><td>${g.trips}</td><td>${effBar(effOf(g))}</td><td>${fmtDur(g.tOut)}</td><td>${g.nExc}</td><td>${g.nRisco}</td><td>${g.nCrit?`<span class="tag crit">${g.nCrit}</span>`:'0'}</td><td>${g.nExc?'+'+String(Math.round(g.maxDev*10)/10).replace('.',',')+' °C':'—'}</td><td>${statusTag(effOf(g))}</td></tr>`).join('')||'<tr><td colspan="10" class="hint">Sem dados.</td></tr>');
+  $('#tblRank').innerHTML=`<tr><th>${GROUPS[ST.group]}</th><th>Veículos</th><th>Viagens</th><th style="min-width:210px">Efetividade (meta ${CFG.meta}%)</th><th>Fora da faixa</th><th>Frio</th><th>Risco</th><th>Críticas</th><th>Maior desvio</th>${hasComp()?'<th>Congelado</th><th>Resfriado</th>':''}<th>Situação</th></tr>`+
+  (rows.map(g=>`<tr class="${ST.group==='total'?'':'clk'}" data-k="${esc(g.key)}"><td><b>${esc(g.label)}</b></td><td>${g.vehs.size}</td><td>${g.trips}</td><td>${effBar(effOf(g))}</td><td>${fmtDur(g.tOut)}</td><td>${g.nExc}</td><td>${g.nRisco}</td><td>${g.nCrit?`<span class="tag crit">${g.nCrit}</span>`:'0'}</td><td>${g.nExc?'+'+String(Math.round(g.maxDev*10)/10).replace('.',',')+' °C':'—'}</td>${hasComp()?cpCell(g,'cong')+cpCell(g,'resf'):''}<td>${statusTag(effOf(g))}</td></tr>`).join('')||'<tr><td colspan="10" class="hint">Sem dados.</td></tr>');
   $('#tblRank').onclick=e=>{const tr=e.target.closest('tr.clk');if(!tr)return;const k=tr.dataset.k,g=ST.group;
     const only=(set)=>{set.clear();set.add(k);};
     if(g==='regiao')only(ST.reg);else if(g==='unidade')only(ST.uni);else if(g==='frota')only(ST.fro);else if(g==='equip')only(ST.eq);
@@ -1056,7 +1159,7 @@ function renderOcc(R){
   const th=(k,l)=>`<th data-k="${k}">${l}${ST.sort.k===k?(ST.sort.d>0?' ▲':' ▼'):''}</th>`;
   $('#tblOcc').innerHTML='<tr>'+th('tipo','Tipo')+th('nivel','Nível')+th('placa','Veículo')+th('equip','Equipamento')+th('drv','Motorista')+th('cli','Cliente / faixa')+th('start','Início')+th('dur','Duração')+th('peak','Pico / desvio')+th('causa','Causa / descrição')+th('local','Local')+'</tr>'+
    (rows.slice(0,400).map((e,i)=>{const f=e.tipo==='frio';
-     return `<tr class="clk${i>=40?' nop':''}" data-v="${e.veic}" data-d="${e.day}"><td><span class="tag gray">${TIPO_L[e.tipo]}</span></td><td><span class="tag ${e.nivel}">${e.nivel==='crit'?'Crítico':'Atenção'}</span></td><td><b>${e.placa}</b></td><td>${esc(e.equip)}</td><td>${esc(DRV[e.drv].nome)}</td><td>${esc(CLI[e.cli].nome)}${f?`<div class="hint" style="margin:0">${e.min} a ${e.max} °C</div>`:''}</td><td>${fmtDT(e.start)}</td><td>${f?fmtDur(e.dur):'—'}</td><td>${f?`${fmtC(e.peakVal)}<div class="hint" style="margin:0">${e.dir==='acima'?'+':'−'}${String(Math.round(e.peak*10)/10).replace('.',',')} °C ${e.dir} · sonda ${pn(e.probe)}</div>`:'—'}</td><td>${e.causa}</td><td>${esc(e.local)}</td></tr>`;}).join('')+(rows.length>40?`<tr class="onlyprint"><td colspan="11" class="hint">Mostrando as 40 primeiras de ${rows.length} ocorrências. A lista completa está no CSV.</td></tr>`:'')||'<tr><td colspan="11" class="hint">Nenhuma ocorrência neste recorte. 🎉</td></tr>');
+     return `<tr class="clk${i>=40?' nop':''}" data-v="${e.veic}" data-d="${e.day}"><td><span class="tag gray">${TIPO_L[e.tipo]}</span></td><td><span class="tag ${e.nivel}">${e.nivel==='crit'?'Crítico':'Atenção'}</span></td><td><b>${e.placa}</b></td><td>${esc(e.equip)}</td><td>${esc(DRV[e.drv].nome)}</td><td>${esc(CLI[e.cli].nome)}${f?`<div class="hint" style="margin:0">${e.comp?CPN[e.comp]+' · ':''}${e.min} a ${e.max} °C</div>`:''}</td><td>${fmtDT(e.start)}</td><td>${f?fmtDur(e.dur):'—'}</td><td>${f?`${fmtC(e.peakVal)}<div class="hint" style="margin:0">${e.dir==='acima'?'+':'−'}${String(Math.round(e.peak*10)/10).replace('.',',')} °C ${e.dir} · sonda ${pn(e.probe)}</div>`:'—'}</td><td>${(f&&!showCause())?'—':e.causa}</td><td>${esc(e.local)}</td></tr>`;}).join('')+(rows.length>40?`<tr class="onlyprint"><td colspan="11" class="hint">Mostrando as 40 primeiras de ${rows.length} ocorrências. A lista completa está no CSV.</td></tr>`:'')||'<tr><td colspan="11" class="hint">Nenhuma ocorrência neste recorte. 🎉</td></tr>');
   $('#tblOcc').onclick=ev=>{
     const h=ev.target.closest('th');if(h){const k=h.dataset.k;ST.sort=ST.sort.k===k?{k,d:-ST.sort.d}:{k,d:k==='start'?-1:1};renderOcc(LAST);return;}
     const tr=ev.target.closest('tr.clk');if(!tr||!LAST.vehs.has(tr.dataset.v))return;ST.focus=tr.dataset.v;ST.focusDay=tr.dataset.d;renderFocusControls(LAST);renderChart(LAST);$('#chart').scrollIntoView({behavior:'smooth',block:'center'});};
@@ -1064,9 +1167,9 @@ function renderOcc(R){
 
 function exportCsv(){
   const rows=occRows(LAST),q=s=>'"'+String(s).replace(/"/g,'""')+'"';
-  const head=['Tipo','Nível','Placa','Equipamento','Unidade','Frota','Motorista','Cliente','Faixa mín','Faixa máx','Início','Fim','Duração (min)','Pico °C','Desvio °C','Direção','Sonda','Causa / descrição','Local'];
+  const head=['Tipo','Nível','Placa','Equipamento','Unidade','Frota','Motorista','Cliente','Faixa mín','Faixa máx','Início','Fim','Duração (min)','Pico °C','Desvio °C','Direção','Sonda','Compartimento','Causa / descrição','Local'];
   const lines=[head.join(';')].concat(rows.map(e=>{const f=e.tipo==='frio';
-    return [TIPO_L[e.tipo],e.nivel==='crit'?'Crítico':'Atenção',e.placa,e.equip,UNI[e.unidade].nome,FRO[e.frota].nome,DRV[e.drv].nome,CLI[e.cli].nome,f?e.min:'',f?e.max:'',fmtDT(e.start),f?fmtDT(e.end):'',f?Math.round(e.dur):'',f?String(e.peakVal).replace('.',','):'',f?String(Math.round(e.peak*10)/10).replace('.',','):'',f?e.dir:'',f?pn(e.probe):'',e.causa,e.local].map(q).join(';');}));
+    return [TIPO_L[e.tipo],e.nivel==='crit'?'Crítico':'Atenção',e.placa,e.equip,UNI[e.unidade].nome,FRO[e.frota].nome,DRV[e.drv].nome,CLI[e.cli].nome,f?e.min:'',f?e.max:'',fmtDT(e.start),f?fmtDT(e.end):'',f?Math.round(e.dur):'',f?String(e.peakVal).replace('.',','):'',f?String(Math.round(e.peak*10)/10).replace('.',','):'',f?e.dir:'',f?pn(e.probe):'',f&&e.comp?CPN[e.comp]:'',(f&&!showCause())?'':e.causa,e.local].map(q).join(';');}));
   const blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');
   a.href=URL.createObjectURL(blob);a.download='ocorrencias_frio_ravex.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
@@ -1182,7 +1285,7 @@ function build(files,opt){
       for(const i of act){const t=sm[i].r.ts;if(t-b>gap){wins.push([a-pad,b+pad]);a=t;}b=t;}
       wins.push([a-pad,b+pad]);
     }else{
-      if(opt.trip==='auto')W.push(`${pl}: sem ignição, baú ou velocidade para identificar viagens — usado um bloco por dia.`);
+      if(opt.trip==='auto')W.push(`${pl}: sem ignição, baú ou velocidade para identificar viagens — usado um período por dia.`);
       const d=new Set(sm.map(s=>Math.floor(s.r.ts/1440)));d.forEach(x=>wins.push([x*1440,x*1440+1439.99]));
     }
     const vi={pl,eq,fonte,trips:0};vehInfo.push(vi);
@@ -1236,7 +1339,7 @@ function fmtBR(ts){const d=new Date(ts*60000),p=n=>String(n).padStart(2,'0');ret
 function applyDataset(B){
   B.DATA.veiculos.forEach(v=>v.equip=rvName(v.equip));B.EQUIPS=[...new Set(B.DATA.veiculos.map(v=>v.equip))];
   B.DATA.locs=B.DATA.locs.map(rvName);B.EVT.forEach(e=>e.nome=rvName(e.nome));
-  DAY0=B.DAY0;NDAYS=B.NDAYS;DATA=B.DATA;EVT=B.EVT;EQUIPS=B.EQUIPS;NPROBES=B.NPROBES;PNUM=B.PNUM||Array.from({length:NPROBES},(_,i)=>i+1);reindex();
+  DAY0=B.DAY0;NDAYS=B.NDAYS;DATA=B.DATA;EVT=B.EVT;EQUIPS=B.EQUIPS;NPROBES=B.NPROBES;PNUM=B.PNUM||Array.from({length:NPROBES},(_,i)=>i+1);reindex();normCC();ST.cp.clear();['cong','resf'].forEach(c=>ST.cp.add(c));
   const fill=(s,a)=>{s.clear();a.forEach(o=>s.add(o.id));};
   fill(ST.reg,DATA.regioes);fill(ST.uni,DATA.unidades);fill(ST.fro,DATA.frotas);fill(ST.cli,DATA.clientes);
   ST.eq.clear();EQUIPS.forEach(e=>ST.eq.add(e));ST.pr.clear();for(let i=0;i<NPROBES;i++)ST.pr.add(String(i));
@@ -1250,15 +1353,16 @@ function idb(mode,fn,store='kv'){return new Promise((res,rej)=>{const o=indexedD
 const HIST_MAX=40;
 async function saveReport(B,o){
   const seq=((await idb('readonly',s=>s.get('seq')).catch(()=>0))||0)+1,id='R'+Date.now();
-  const m=B.DATA.meta;Object.assign(m,{id,num:seq,emitido:Date.now(),min:Number(o.min),max:Number(o.max),tol:Number(o.tol)||0,carga:o.carga||''});
-  const idx={id,num:seq,cliente:m.cliente,carga:m.carga,periodo:m.periodo,min:m.min,max:m.max,tol:m.tol,emitido:m.emitido,veiculos:B.DATA.veiculos.length,
+  const m=B.DATA.meta;Object.assign(m,{ft:hasCompOf(B.DATA.cc)?ccText(B.DATA.cc):'',id,num:seq,emitido:Date.now(),min:Number(o.min),max:Number(o.max),tol:Number(o.tol)||0,carga:o.carga||''});
+  const idx={ft:m.ft,id,num:seq,cliente:m.cliente,carga:m.carga,periodo:m.periodo,min:m.min,max:m.max,tol:m.tol,emitido:m.emitido,veiculos:B.DATA.veiculos.length,
     placas:B.DATA.veiculos.map(v=>v.placa).slice(0,40),viagens:B.DATA.viagens.length};
   try{await idb('readwrite',s=>s.put(B,id),'rep');await idb('readwrite',s=>s.put(idx,id),'idx');await idb('readwrite',s=>s.put(seq,'seq'));await idb('readwrite',s=>s.put(id,'current'));
     const all=await listIdx();for(const x of all.slice(HIST_MAX)){await idb('readwrite',s=>s.delete(x.id),'rep');await idb('readwrite',s=>s.delete(x.id),'idx');}}catch(e){}
 }
 async function listIdx(){try{const a=await idb('readonly',s=>s.getAll(),'idx');return (a||[]).sort((x,y)=>y.emitido-x.emitido);}catch(e){return[];}}
 const fmtEmit=t=>{const d=new Date(t),p=n=>String(n).padStart(2,'0');return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+p(d.getHours())+':'+p(d.getMinutes());};
-const faixaTxt=m=>String(m.min).replace('.',',')+' a '+String(m.max).replace('.',',')+' °C';
+const faixaTxt=m=>m.ft||String(m.min).replace('.',',')+' a '+String(m.max).replace('.',',')+' °C';
+const hasCompOf=cc=>!!(cc&&cc.pcomp&&cc.pcomp.some(x=>x));
 async function histRender(){
   const q=nrm($('#histQ').value),all=await listIdx(),cur=await idb('readonly',s=>s.get('current')).catch(()=>null);
   const L=all.filter(x=>!q||nrm([x.cliente,x.carga,x.periodo,'n '+x.num,String(x.num),...x.placas].join(' ')).includes(q));
@@ -1293,7 +1397,7 @@ function computeCaps(){
 function applyCaps(){
   computeCaps();
   const T=(id,on)=>$('#'+id).classList.toggle('hide',!on);
-  T('msReg',CAPS.regiao);T('msUni',CAPS.unidade);T('msFro',CAPS.frota);T('msCli',CAPS.cliente);T('msPr',CAPS.sondas);T('fldEq',CAPS.equip);
+  T('msReg',CAPS.regiao);T('msUni',CAPS.unidade);T('msFro',CAPS.frota);T('msCli',CAPS.cliente);T('msPr',CAPS.sondas);T('msCp',hasComp());T('fldEq',CAPS.equip);
   T('secDrv',CAPS.motorista);T('segTipo',CAPS.risco);
   if(!CAPS.risco)ST.tipo='all';
   $('#chipsEq').innerHTML=EQUIPS.map(e=>`<span class="chip" data-e="${esc(e)}">${esc(e)}</span>`).join('');
@@ -1313,16 +1417,31 @@ function renumber(){let n=0;document.querySelectorAll('.eyebrow').forEach(e=>{if
 /* ---- janela de importação ---- */
 const IMP={files:[],built:null};
 const KIND_L={hist:['Histórico de Veículo','ok'],veic:['Veículo','ok'],cad:['Cadastro (placa/frota/cliente)','ok'],uni:['Unidade Organizacional','ok']};
+function impCC(){
+  const on=$('#impComp').value==='1',sondas=IMP.built&&!IMP.built.erro?IMP.built.S.sondas:[];
+  const pc=sondas.map((n,i)=>{if(!on)return '';const el=document.querySelector(`#impPmap select[data-i="${i}"]`);return el?el.value:'';});
+  return{pcomp:pc,cong:{min:Number($('#impCgMin').value),max:Number($('#impCgMax').value)},resf:{min:Number($('#impRfMin').value),max:Number($('#impRfMax').value)},showCauses:$('#impCause').checked};
+}
+function impPmapRender(){
+  const on=$('#impComp').value==='1';
+  document.querySelectorAll('.cpx').forEach(e=>e.classList.toggle('hide',!on));
+  const box=$('#impPmap'),sondas=IMP.built&&!IMP.built.erro?IMP.built.S.sondas:[];
+  if(!on||!sondas.length){box.innerHTML='';return;}
+  const prev={};box.querySelectorAll('select').forEach(s=>prev[s.dataset.n]=s.value);
+  box.innerHTML=sondas.map((n,i)=>{const v=prev[n]!==undefined?prev[n]:(i===0?'resf':i===1?'cong':'');
+    return `<div class="fld"><label>Sonda ${n} é</label><select data-i="${i}" data-n="${n}"><option value="resf" ${v==='resf'?'selected':''}>Resfriado</option><option value="cong" ${v==='cong'?'selected':''}>Congelado</option><option value="" ${v===''?'selected':''}>Faixa do cliente</option></select></div>`;}).join('');
+}
 function impOpt(){return{nome:$('#impCli').value.trim(),carga:$('#impCarga').value.trim(),min:$('#impMin').value,max:$('#impMax').value,tol:$('#impTol').value,trip:$('#impTrip').value};}
 function impRender(){
   $('#impFiles').innerHTML=IMP.files.map((f,i)=>{const k=KIND_L[f.kind];
     return `<div class="ifile"><span class="n">${esc(f.name)}</span>${k?`<span class="tag ok">${k[0]}</span>`:'<span class="tag crit">Não reconhecido</span>'}<button class="btn" data-x="${i}" style="padding:2px 9px">✕</button></div>`;}).join('');
   const o=impOpt(),h=[];let ok=false;
-  if(!IMP.files.length){IMP.built=null;$('#impSum').innerHTML='';}
+  if(!IMP.files.length){IMP.built=null;$('#impSum').innerHTML='';impPmapRender();}
   else{
-    const r=build(IMP.files,o);IMP.built=r;
+    const r=build(IMP.files,o);IMP.built=r;impPmapRender();
     if(r.erro)h.push(`<p class="e">${esc(r.erro)}</p>`);
     else{const S=r.S;ok=isFinite(Number(o.min))&&isFinite(Number(o.max))&&Number(o.min)<Number(o.max);
+      if($('#impComp').value==='1'){const c=impCC();ok=ok&&c.cong.min<c.cong.max&&c.resf.min<c.resf.max&&c.pcomp.some(x=>x);if(!c.pcomp.some(x=>x))h.push('<p class="e">Escolha o compartimento de pelo menos uma sonda.</p>');}
       const sk=S.nBau?`${S.nBau} aberturas pelo sensor de baú`:'',sd=S.nDesc?`${S.nDesc} aberturas por início/fim de descarga`:'';
       h.push('<ul>',
        `<li><b>${S.arquivos}</b> arquivo(s) de histórico · <b>${S.linhas.toLocaleString('pt-BR')}</b> leituras${S.dup?` (${S.dup.toLocaleString('pt-BR')} repetidas entre arquivos descartadas)`:''} · <b>${S.veiculos}</b> veículo(s) · <b>${S.viagens}</b> viagem(ns) · período <b>${esc(r.B.DATA.meta.periodo)}</b></li>`,
@@ -1359,10 +1478,11 @@ function initImport(){
   ['dragleave','drop'].forEach(n=>dz.addEventListener(n,e=>{e.preventDefault();dz.classList.remove('over');}));
   dz.addEventListener('drop',e=>impAdd([...e.dataTransfer.files]));
   $('#impFiles').onclick=e=>{const b=e.target.closest('button[data-x]');if(b){IMP.files.splice(Number(b.dataset.x),1);impRender();}};
-  ['impCli','impCarga','impMin','impMax','impTol','impTrip'].forEach(id=>$('#'+id).addEventListener('change',impRender));
+  ['impCli','impCarga','impMin','impMax','impTol','impTrip','impComp','impCgMin','impCgMax','impRfMin','impRfMax'].forEach(id=>$('#'+id).addEventListener('change',impRender));
   $('#impGo').onclick=async()=>{
     const r=IMP.built;if(!r||r.erro)return;
     const o=impOpt();if(!o.nome){$('#impCli').focus();$('#impCli').style.outline='2px solid var(--crit)';return;}
+    r.B.DATA.cc=impCC();
     await saveReport(r.B,o);applyDataset(r.B);
     $('#impModal').classList.remove('open');refresh();window.scrollTo({top:0,behavior:'smooth'});
   };
