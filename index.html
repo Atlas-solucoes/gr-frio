@@ -126,7 +126,7 @@ code{background:var(--bg);padding:1px 6px;border-radius:6px;font-size:12px}
 .drawer .list label:hover{background:var(--bg)}
 .heat{display:grid;gap:2px}
 .foot{color:var(--ink3);font-size:12px;margin-top:20px;text-align:center}
-@page{size:A4 portrait;margin:0}
+@page{size:A4 portrait;margin:22mm 0 14mm}@page :first{margin:0 0 12mm}
 /* barra lateral fixa de filtros (telas largas) */
 @media(min-width:1100px){
   .wrap:not(header .wrap){max-width:1720px;display:grid;grid-template-columns:276px minmax(0,1fr);column-gap:22px;row-gap:0;align-items:start}
@@ -337,6 +337,11 @@ html[data-dash=escuro] #dash .dtitle b{color:var(--ink)}
 @media print{.dcol{gap:12px}}
 @media print{#dash .hint{display:none}#dash .dc{padding:12px 14px}#dash .hb{margin:5px 0}#dash .ring svg{width:112px;height:112px}#dash .ring:first-child svg{width:124px;height:124px}#dash .heat span{height:13px!important}#dash .dc h2{font-size:14px;margin-bottom:6px;padding-bottom:6px}#dash .dtitle b{font-size:17px}#dash .sb{margin:8px 0}.rings{margin:6px 0}}
 .dc.sparse{align-self:start}
+@media print{.pgbrk{break-before:page;margin-top:0}.stats-h{break-after:avoid}.stat{break-inside:avoid}}
+@media print{.rhint,.resopts{display:none!important}}
+@media print{html[data-dash] .dupheat{display:none!important}}
+@media print{.eyebrow{margin:46px 0 0!important}.eyebrow+section.card,.eyebrow+.grid,.eyebrow+div:not(.grid){margin-top:14px!important}.wrap:not(header .wrap)>section.card:not(.filters),.wrap:not(header .wrap)>details.resumo{margin-top:34px!important}.eyebrow+section.card{margin-top:14px!important}#dash{margin-bottom:0}}
+@media print{#secDrv,#secDrv.card{break-inside:avoid!important}}
 </style>
 </head>
 <body>
@@ -400,7 +405,7 @@ s.onchange=function(){ap(s.value);try{localStorage.setItem(K,s.value)}catch(e){}
 
 <section id="dash"></section>
 <details class="card resumo" open>
-  <summary><span>Resumo do período</span><span style="color:var(--ink3);font-size:13px;font-weight:600">clique para recolher ou expandir <span class="chev" style="display:inline-block">▾</span></span></summary>
+  <summary><span>Resumo do período</span><span class="rhint" style="color:var(--ink3);font-size:13px;font-weight:600">clique para recolher ou expandir <span class="chev" style="display:inline-block">▾</span></span></summary>
   <div class="resopts" id="resOpts"></div>
   <div class="stats" id="stats"></div>
 </details>
@@ -451,8 +456,8 @@ s.onchange=function(){ap(s.value);try{localStorage.setItem(K,s.value)}catch(e){}
 </section>
 <section class="card" id="secDrv" style="margin-top:22px"><h2>Motoristas</h2><div class="hint">Quem mais carrega ocorrências nas viagens do período. Clique para ver as ocorrências do motorista.</div><div class="tscroll" style="max-height:420px"><table id="tblDrv"></table></div></section>
 
-<div class="eyebrow" data-n="6">Quando acontece</div>
-<section class="card">
+<div class="eyebrow dupheat" data-n="6">Quando acontece</div>
+<section class="card dupheat">
   <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end">
     <div><h2>Mapa de calor: dia × hora</h2><div class="hint">Minutos fora da faixa. Mais escuro = pior. Escolha o recorte para comparar.</div></div>
     <div style="display:flex;gap:12px;flex-wrap:wrap">
@@ -463,7 +468,7 @@ s.onchange=function(){ap(s.value);try{localStorage.setItem(K,s.value)}catch(e){}
   <div id="heat"></div>
 </section>
 
-<div class="eyebrow" data-n="7">Ocorrências</div>
+<div class="eyebrow pgbrk" data-n="7">Ocorrências</div>
 <section class="card">
   <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
     <div><h2>Ocorrências detalhadas</h2><div class="hint" id="occHint" style="margin-bottom:0">—</div></div>
