@@ -9,17 +9,17 @@
   color-scheme:light;
   --bg:#e7ebf3; --card:#ffffff; --ink:#14213d; --ink2:#4a5672; --ink3:#7b86a0; --line:#e3e8f1;
   --brand:#14213d; --accent:#eb6834;
-  --s1:#2a78d6; --s2:#eb6834; --p1:#2a78d6;--p2:#eb6834;--p3:#1baf7a;--p4:#6250d6;--p5:#e87ba4;
+  --s1:#2a78d6; --s2:#eb6834; --p1:#7c3aed;--p2:#ea580c;--p3:#0d9488;--p4:#db2777;--p5:#65a30d;
   --ok:#0f9d6b; --okbg:#e2f6ee; --warn:#c98500; --warnbg:#fff2d6; --crit:#d93a3a; --critbg:#fde4e4;
   --band:rgba(15,157,107,.10); --shadow:0 2px 4px rgba(20,33,61,.07),0 12px 32px rgba(20,33,61,.10);
   --r:16px;
 }
 @media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){
   color-scheme:dark;--bg:#0e1424;--card:#171f35;--ink:#eef1f8;--ink2:#b8c0d6;--ink3:#8591ad;--line:#27314d;
-  --s1:#3987e5;--s2:#d95926;--p1:#3987e5;--p2:#d95926;--p3:#199e70;--p4:#9085e9;--p5:#d55181;--ok:#2fc592;--okbg:#10372d;--warn:#e6a520;--warnbg:#3a2f12;--crit:#ef6767;--critbg:#401b1f;
+  --s1:#3987e5;--s2:#d95926;--p1:#a78bfa;--p2:#fb923c;--p3:#2dd4bf;--p4:#f472b6;--p5:#a3e635;--ok:#2fc592;--okbg:#10372d;--warn:#e6a520;--warnbg:#3a2f12;--crit:#ef6767;--critbg:#401b1f;
   --band:rgba(47,197,146,.12);--shadow:0 1px 2px rgba(0,0,0,.3);}}
 :root[data-theme="dark"]{color-scheme:dark;--bg:#0e1424;--card:#171f35;--ink:#eef1f8;--ink2:#b8c0d6;--ink3:#8591ad;--line:#27314d;
-  --s1:#3987e5;--s2:#d95926;--p1:#3987e5;--p2:#d95926;--p3:#199e70;--p4:#9085e9;--p5:#d55181;--ok:#2fc592;--okbg:#10372d;--warn:#e6a520;--warnbg:#3a2f12;--crit:#ef6767;--critbg:#401b1f;
+  --s1:#3987e5;--s2:#d95926;--p1:#a78bfa;--p2:#fb923c;--p3:#2dd4bf;--p4:#f472b6;--p5:#a3e635;--ok:#2fc592;--okbg:#10372d;--warn:#e6a520;--warnbg:#3a2f12;--crit:#ef6767;--critbg:#401b1f;
   --band:rgba(47,197,146,.12);--shadow:0 1px 2px rgba(0,0,0,.3);}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
@@ -151,6 +151,10 @@ code{background:var(--bg);padding:1px 6px;border-radius:6px;font-size:12px}
   .filters>.fld:has(#btnImp)>label,.filters>.fld:has(#btnCfg)>label{display:none}
   .filters::before{content:"Filtros";font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--ink3)}
 }
+.ctitle{display:flex;gap:10px;align-items:baseline;margin:16px 0 4px;flex-wrap:wrap}.ctitle b{font-size:15px}.ctitle span{color:var(--ink3);font-size:13px}.cbox{break-inside:avoid}
+.resopts{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.chk{display:flex;gap:7px;align-items:center;font-size:13px;font-weight:600;cursor:pointer}
+details.resumo{margin-top:18px}
 @media print{body{padding:12mm}
   :root{color-scheme:light}
   body{background:#fff}header.top .btn,.filters,.cfg,.noprint,.drawer{display:none!important}
@@ -220,13 +224,15 @@ code{background:var(--bg);padding:1px 6px;border-radius:6px;font-size:12px}
   <div class="hint" style="margin-top:8px">No modo “por cliente / carga”, cada viagem é avaliada pela faixa e tolerância do cliente. No modo “global”, vale a faixa única acima para todos.</div>
 </section>
 
+<details class="card resumo" open>
+  <summary><span>Resumo do período</span><span style="color:var(--ink3);font-size:13px;font-weight:600">clique para recolher ou expandir <span class="chev" style="display:inline-block">▾</span></span></summary>
+  <div class="resopts" id="resOpts"></div>
+  <div class="stats" id="stats"></div>
+</details>
+
 <div class="eyebrow" data-n="1">Visão geral</div>
 <div class="grid kpis" id="kpis"></div>
 <div class="grid hide" id="compCards" style="margin-top:12px;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr))"></div>
-<details class="card resumo" open>
-  <summary><span>Resumo do período</span><span style="color:var(--ink3);font-size:13px;font-weight:600">clique para recolher ou expandir <span class="chev" style="display:inline-block">▾</span></span></summary>
-  <div class="stats" id="stats"></div>
-</details>
 
 <div class="eyebrow" data-n="2">Curva de temperatura</div>
 <section class="card">
@@ -243,15 +249,8 @@ code{background:var(--bg);padding:1px 6px;border-radius:6px;font-size:12px}
   <div id="chart"></div>
 </section>
 
-<div class="eyebrow" data-n="3">Meta e causas</div>
-<div class="grid two-eq" id="gridMeta">
-  <section class="card">
-    <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start">
-      <div><h2>Cumprimento da meta</h2><div class="hint" id="metaHint">—</div></div>
-      <div class="seg" id="segMeta"><button data-v="veiculo">Por veículo</button><button data-v="dia">Por dia</button></div>
-    </div>
-    <div id="metaChart"></div>
-  </section>
+<div class="eyebrow" data-n="3">Causas</div>
+<div class="grid" id="gridMeta">
   <section class="card" id="secCauses"><h2>Por que sai da faixa?</h2><div class="hint">Minutos fora da faixa por causa provável.</div><div id="causes"></div></section>
 </div>
 
@@ -659,7 +658,7 @@ function compute(){
     if(!veh.has(t.veic)||!ST.cli.has(t.cli)) continue;
     const a=analyzeTrip(t);
     if(a&&hasComp()){a.cp={};for(const c of ['cong','resf']){const ic=probesOf(t).filter(p=>PCt(t,p)===c);if(!ic.length)continue;
-      const ac=analyzeTrip(t,ic,true);a.cp[c]={tOp:ac.tOp,tOut:ac.tOut,nExc:ac.exc.length,nCrit:ac.exc.filter(e=>e.nivel==='crit').length,maxDev:ac.exc.reduce((m,e)=>Math.max(m,e.peak),0)};}}
+      const ac=analyzeTrip(t,ic,true);a.cp[c]={exc:ac.exc,tOp:ac.tOp,tOut:ac.tOut,nExc:ac.exc.length,nCrit:ac.exc.filter(e=>e.nivel==='crit').length,maxDev:ac.exc.reduce((m,e)=>Math.max(m,e.peak),0)};}}
     if(a&&(a.tOp>0||a.ev.length||a.ab.length)) trips.push(a);
   }
   const R={trips,exc:[],evs:[],ab:[],tot:{tOp:0,tOut:0,tTol:0,tGap:0,nExc:0,nCrit:0,nWarn:0,maxDev:0,nRisco:0,nAll:0,nAllCrit:0},
@@ -746,7 +745,6 @@ function initFilters(){
     $('#fFrom').onchange=e=>{ST.from=Math.max(0,Math.min(NDAYS-1,dayFromIso(e.target.value)));if(ST.from>ST.to)ST.to=ST.from;refresh();};
   $('#fTo').onchange=e=>{ST.to=Math.max(0,Math.min(NDAYS-1,dayFromIso(e.target.value)));if(ST.to<ST.from)ST.from=ST.to;refresh();};
   $('#segTipo').onclick=e=>{const b=e.target.closest('button');if(b){ST.tipo=b.dataset.v;renderOcc(LAST);syncFilters();}};
-  $('#segMeta').onclick=e=>{const b=e.target.closest('button');if(b){ST.metaView=b.dataset.v;refresh();}};
   $('#segGroup').onclick=e=>{const b=e.target.closest('button');if(b){ST.group=b.dataset.v;refresh();}};
   $('#segLvl').onclick=e=>{const b=e.target.closest('button');if(b){ST.lvl=b.dataset.v;refresh();}};
   $('#occQ').oninput=e=>{ST.q=e.target.value.toLowerCase();renderOcc(LAST);};
@@ -876,7 +874,7 @@ function refresh(keepDrawer){
   syncCfg();syncFilters();
   const R=compute();LAST=R;
   renderKpis(R);renderComp(R);renderStats(R);
-  renderFocusControls(R);renderChart(R);renderMeta(R);renderCauses(R);renderAb(R);
+  renderFocusControls(R);renderChart(R);renderCauses(R);renderAb(R);
   renderRank(R);renderDrivers(R);renderHeat(R);renderOcc(R);renumber();fitSvgs();fixTables();
   if(!keepDrawer&&$('#drawer').classList.contains('open'))drawVehList();
 }
@@ -893,11 +891,9 @@ function renderKpis(R){
   $('#kpis').innerHTML=
    `<div class="card kpi gauge ${cls}">${ring(R.eff,col)}<div><div class="lbl">Efetividade (dentro da faixa)</div><div class="val">${pct(R.eff)}</div><div class="sub">Meta ${CFG.meta}% · ${statusTag(R.eff)}</div></div></div>`+
    k(T.tOut/Math.max(1,T.tOp)>.3?'bad':T.tOut>0?'mid':'good','Tempo fora da faixa',fmtDur(T.tOut),pct(100*T.tOut/Math.max(1,T.tOp))+' do tempo operacional')+
-   k(T.nAllCrit?'bad':T.nAll?'mid':'good','Ocorrências',T.nAll,`${T.nAllCrit} críticas · ${T.nAll-T.nAllCrit} atenção`)+
    k(badV?'bad':'good','Veículos abaixo da meta',`${badV} de ${vs.length}`,'efetividade menor que '+CFG.meta+'%')+
-   (CAPS.motorista?k(badD?'bad':'good','Motoristas abaixo da meta',`${badD} de ${ds.length}`,'consolidado das viagens'):k('','Viagens analisadas',R.trips.length,'janelas de operação no período'))+
-   k(T.maxDev>=CFG.critDev?'bad':T.maxDev?'mid':'good','Maior desvio',T.nExc?'+'+String(Math.round(T.maxDev*10)/10).replace('.',',')+' °C':'—','além do limite da faixa')+
-   k(T.tGap?'mid':'good','Sem sinal',fmtDur(T.tGap),'sem leitura de temperatura');
+   (CAPS.motorista?k(badD?'bad':'good','Motoristas abaixo da meta',`${badD} de ${ds.length}`,'consolidado das viagens'):'')+
+   k(T.maxDev>=CFG.critDev?'bad':T.maxDev?'mid':'good','Maior desvio',T.nExc?'+'+String(Math.round(T.maxDev*10)/10).replace('.',',')+' °C':'—','além do limite da faixa');
 }
 
 /* ---- por compartimento ---- */
@@ -906,25 +902,32 @@ function renderComp(R){
   if(!hasComp()){box.innerHTML='';box.classList.add('hide');return;}
   box.classList.remove('hide');const cc=normCC();
   const card=(tit,fx,x)=>{const e=x.tOp?100*(1-x.tOut/x.tOp):NaN,cls=!isFinite(e)?'':e>=CFG.meta?'good':e>=CFG.meta-10?'mid':'bad';
+    const dv=x.maxDev?' · maior desvio +'+String(Math.round(x.maxDev*10)/10).replace('.',',')+' °C':'';
     return `<div class="card kpi ${cls}"><div class="lbl">${tit}</div><div class="val">${pct(e)}</div><div class="sub">${fx}</div><div style="margin:8px 0 6px">${effBar(e)}</div>
-    <div class="sub">${x.tOp?`Fora da faixa: ${fmtDur(x.tOut)} · ${x.nExc} ocorrência(s)${x.nExc?' · maior desvio +'+String(Math.round(x.maxDev*10)/10).replace('.',','):''} °C`.replace(/ °C$/,x.nExc?' °C':''):'Sem leituras neste recorte'}</div></div>`;};
-  let h=card('Compilado — todos os compartimentos','Fora da faixa em qualquer compartimento',{tOp:R.tot.tOp,tOut:R.tot.tOut,nExc:R.tot.nExc,maxDev:R.tot.maxDev});
+    <div class="sub">${x.tOp?`<b>Dentro da faixa ${pct(e)}</b> · <b>Fora da faixa ${pct(100-e)}</b>`:'Sem leituras neste recorte'}</div>
+    <div class="sub">${x.tOp?`Fora da faixa: ${fmtDur(x.tOut)} · ${x.nExc} ocorrência(s)${dv}`:''}</div></div>`;};
+  let h=card('Todos os compartimentos','Dentro da faixa só quando todos estão na faixa ao mesmo tempo',{tOp:R.tot.tOp,tOut:R.tot.tOut,nExc:R.tot.nExc,maxDev:R.tot.maxDev});
   ['cong','resf'].forEach(c=>{if(cc.comps&&cc.comps[c])h+=card(CPN[c],'Faixa '+fmtR(cc[c].min)+' a '+fmtR(cc[c].max)+' °C',R.cmp[c]);});
   box.innerHTML=h;
 }
 
 /* ---- resumo retrátil ---- */
+const RES_G=[['op','Operação'],['oc','Ocorrências'],['ab','Aberturas de porta'],['te','Temperatura']];
+let RESSEL=(()=>{try{const x=JSON.parse(localStorage.getItem('ravexFrio.resumo'));if(Array.isArray(x))return new Set(x);}catch(e){}return new Set(RES_G.map(g=>g[0]));})();
 function renderStats(R){
   const T=R.tot,st=(l,v,w)=>`<div class="stat${w?' w2':''}"><span>${l}</span><b>${v}</b></div>`,h=t=>`<div class="stats-h">${t}</div>`;
-  $('#stats').innerHTML=
-    h('Operação')+st('Período',periodLabel(),1)+st('Viagens',R.trips.length)+st('Veículos',R.vehs.size)+(CAPS.motorista?st('Motoristas',R.drvs.size):'')+st('Tempo de operação',fmtDur(T.tOp))+
-    h('Ocorrências')+st('Total de ocorrências',T.nAll)+st('Críticas',T.nAllCrit)+st('Atenção',T.nAll-T.nAllCrit)+
-      st('Ocorrências de frio',T.nExc)+st('Ocorrências de regras de risco',T.nRisco)+
-    h('Aberturas de porta (baú ou descarga)')+st('Aberturas analisadas',R.ab.length)+st('Perda média por abertura',R.ab.length?fmtLoss(R.ab.reduce((a,e)=>a+e.loss,0)/R.ab.length):'—')+
-      st('Maior perda',R.ab.length?fmtLoss(Math.max(...R.ab.map(e=>e.loss))):'—')+st('Tempo médio aberto',R.ab.length?fmtDur(R.ab.reduce((a,e)=>a+e.dur,0)/R.ab.length):'—')+st('Acima do limite',R.ab.length?`${R.ab.filter(e=>e.over).length} de ${R.ab.length}`:'—')+
-    h('Temperatura')+st('Efetividade',pct(R.eff))+st('Meta',CFG.meta+'%')+st('Tempo fora da faixa',fmtDur(T.tOut))+st('Sem sinal',fmtDur(T.tGap))+
-      st('Maior desvio',T.nExc?'+'+String(Math.round(T.maxDev*10)/10).replace('.',',')+' °C':'—')+st('Faixa aplicada',rangeText(),1)+st('Turnos avaliados',shLabel(),1)+st('Sondas avaliadas',probesLabel(),1);
+  const G={
+   op:st('Período',periodLabel(),1)+st('Viagens',R.trips.length)+st('Veículos',R.vehs.size)+(CAPS.motorista?st('Motoristas',R.drvs.size):'')+st('Tempo de operação',fmtDur(T.tOp)),
+   oc:st('Total de ocorrências',T.nAll)+st('Críticas',T.nAllCrit)+st('Atenção',T.nAll-T.nAllCrit)+st('Ocorrências de frio',T.nExc)+st('Ocorrências de regras de risco',T.nRisco),
+   ab:st('Aberturas analisadas',R.ab.length)+st('Perda média por abertura',R.ab.length?fmtLoss(R.ab.reduce((a,e)=>a+e.loss,0)/R.ab.length):'—')+
+      st('Maior perda',R.ab.length?fmtLoss(Math.max(...R.ab.map(e=>e.loss))):'—')+st('Tempo médio aberto',R.ab.length?fmtDur(R.ab.reduce((a,e)=>a+e.dur,0)/R.ab.length):'—')+st('Acima do limite',R.ab.length?`${R.ab.filter(e=>e.over).length} de ${R.ab.length}`:'—'),
+   te:st('Efetividade',pct(R.eff))+st('Meta',CFG.meta+'%')+st('Tempo fora da faixa',fmtDur(T.tOut))+
+      st('Maior desvio',T.nExc?'+'+String(Math.round(T.maxDev*10)/10).replace('.',',')+' °C':'—')+st('Faixa aplicada',rangeText(),1)+st('Turnos avaliados',shLabel(),1)+st('Sondas avaliadas',probesLabel(),1)};
+  $('#resOpts').innerHTML='<span class="hint" style="margin:0;align-self:center">Mostrar no resumo:</span>'+RES_G.map(([k,l])=>`<label class="chk"><input type="checkbox" data-g="${k}" ${RESSEL.has(k)?'checked':''}> ${l}</label>`).join('');
+  $('#stats').innerHTML=RES_G.filter(([k])=>RESSEL.has(k)).map(([k,l])=>h(l)+G[k]).join('')||'<div class="hint" style="grid-column:1/-1">Marque acima o que deve aparecer no resumo.</div>';
 }
+$('#resOpts').addEventListener('change',e=>{const g=e.target.dataset.g;if(!g)return;e.target.checked?RESSEL.add(g):RESSEL.delete(g);
+  try{localStorage.setItem('ravexFrio.resumo',JSON.stringify([...RESSEL]));}catch(x){}if(LAST)renderStats(LAST);});
 
 /* ---- controles do gráfico ---- */
 function renderFocusControls(R){
@@ -958,25 +961,41 @@ const PDASH=['','7 3','2 3','9 3 2 3','12 4'];
 function niceStep(span){const raw=span/6,p=Math.pow(10,Math.floor(Math.log10(raw))),f=raw/p;return (f<=1?1:f<=2?2:f<=5?5:10)*p;}
 function probeCompLab(trips,p){if(!hasComp())return '';const cs=new Set(trips.map(a=>PCt(a.t,p)).filter(Boolean));
   return cs.size===1?' · '+CPN[[...cs][0]]:cs.size>1?' · Resfriado/Congelado (varia por dia)':'';}
-function chartRules(a,NP){
+function chartRules(a,NP,cc){
   const one=[{lab:'',min:a.rule.min,max:a.rule.max,fill:'var(--band)'}];
   if(!hasComp())return one;
   const out=[],seen=new Set();
-  for(let p=0;p<NP;p++){if(!ST.pr.has(String(p)))continue;const c=PCt(a.t,p);if(c&&!ST.cp.has(c))continue;if(seen.has(c))continue;seen.add(c);
+  for(let p=0;p<NP;p++){if(!ST.pr.has(String(p)))continue;const c=PCt(a.t,p);if(c&&!ST.cp.has(c))continue;if(cc!==undefined&&c!==(cc||''))continue;if(seen.has(c))continue;seen.add(c);
     const r=c?DATA.cc[c]:a.rule;out.push({lab:c?CPN[c].slice(0,4)+'. ':'',min:r.min,max:r.max,fill:c==='cong'?'rgba(59,130,246,.14)':'var(--band)'});}
   return out.length?out:one;
+}
+function chartComps(trips){
+  if(!hasComp())return [undefined];
+  const set=new Set();
+  for(const a of trips){const t=a.t;for(let p=0;p<t.s.length;p++){if(!ST.pr.has(String(p)))continue;const c=PCt(t,p);if(c&&!ST.cp.has(c))continue;set.add(c);}}
+  const out=['resf','cong'].filter(c=>set.has(c));if(set.has(''))out.push('');
+  return out.length?out:[undefined];
+}
+function chartBoxes(box,comps){
+  const hd=c=>c===undefined?'':c?`<div class="ctitle"><b>${CPN[c]}</b><span>faixa ${fmtR(DATA.cc[c].min)} a ${fmtR(DATA.cc[c].max)} °C</span></div>`:'<div class="ctitle"><b>Faixa do cliente</b></div>';
+  box.innerHTML=comps.map((c,i)=>`<div class="cbox">${hd(c)}<div class="cbody" data-i="${i}"></div></div>`).join('');
+  return comps.map((c,i)=>box.querySelector(`.cbody[data-i="${i}"]`));
 }
 function renderChart(R){
   const box=$('#chart');const trips=focusTrips(R);
   if(!trips.length){box.innerHTML='<div class="hint" style="padding:30px;text-align:center">Sem viagens para o veículo escolhido neste período (ou ele não tem as sondas selecionadas).</div>';$('#chartHint').textContent='—';$('#chartLegend').innerHTML='';return;}
   if(ST.focus==='all')return renderChartAll(R,trips);
+  const comps=chartComps(trips),bodies=chartBoxes(box,comps);
+  comps.forEach((c,i)=>drawVehChart(bodies[i],R,trips,c,comps.length>1?300:380));
+}
+function drawVehChart(box,R,trips,cc,H){
   const v=VEI[ST.focus],NP=v.sondas;
-  const W=Math.max(360,box.clientWidth||900),H=380,m={l:48,r:hasComp()?124:92,t:12,b:34},pw=W-m.l-m.r,ph=H-m.t-m.b;
+  const W=Math.max(360,box.clientWidth||900),m={l:48,r:hasComp()?124:92,t:12,b:34},pw=W-m.l-m.r,ph=H-m.t-m.b;
   const GAPW=40;let off=0;const segs=[];
   for(const a of trips){const t=a.t,o=t.full?t.day*1440:t.tm[0],span=t.full?1440:t.tm[t.tm.length-1]-t.tm[0]+STEP;segs.push({a,off,span,o});off+=span+GAPW;}
   const total=off-GAPW;
   let lo=Infinity,hi=-Infinity;
-  for(const s of segs){const t=s.a.t;for(let p=0;p<NP;p++)for(let i=0;i<t.tm.length;i++){const x=t.s[p][i];if(x<lo)lo=x;if(x>hi)hi=x;}for(const q of chartRules(s.a,NP)){lo=Math.min(lo,q.min);hi=Math.max(hi,q.max);}}
+  for(const s of segs){const t=s.a.t;for(let p=0;p<NP;p++){if(hasComp()&&(PCt(t,p)||'')!==(cc||''))continue;for(let i=0;i<t.tm.length;i++){const x=t.s[p][i];if(x<lo)lo=x;if(x>hi)hi=x;}}for(const q of chartRules(s.a,NP,cc)){lo=Math.min(lo,q.min);hi=Math.max(hi,q.max);}}
   const step=niceStep(hi-lo);lo=Math.floor((lo-step*.3)/step)*step;hi=Math.ceil((hi+step*.3)/step)*step;
   const X=(s,m_)=>m.l+(s.off+(m_-s.o))/total*pw, Y=val=>m.t+(hi-val)/(hi-lo)*ph;
   let g='';
@@ -984,23 +1003,25 @@ function renderChart(R){
   g+=`<text x="12" y="${m.t+ph/2}" transform="rotate(-90 12 ${m.t+ph/2})" text-anchor="middle">Temperatura (°C)</text>`;
   const multiDay=segs.length>1, segW=pw/segs.length, every=Math.max(1,Math.ceil(34/segW));
   segs.forEach((s,si)=>{const t=s.a.t,x0=X(s,s.o),x1=X(s,s.o+s.span),r=s.a.rule;
-    const CR=chartRules(s.a,NP);for(const q of CR)g+=`<rect x="${x0}" y="${Y(q.max)}" width="${x1-x0}" height="${Y(q.min)-Y(q.max)}" fill="${q.fill}"/>`;
+    const CR=chartRules(s.a,NP,cc);for(const q of CR)g+=`<rect x="${x0}" y="${Y(q.max)}" width="${x1-x0}" height="${Y(q.min)-Y(q.max)}" fill="${q.fill}"/>`;
     if(!shAll())for(let i=0;i<t.tm.length;i++)if(!shOn(t.tm[i])){const xa=X(s,t.tm[i]),xb=X(s,i+1<t.tm.length?t.tm[i+1]:t.tm[i]+STEP);g+=`<rect x="${xa}" y="${m.t}" width="${Math.max(1,xb-xa)}" height="${ph}" fill="var(--ink3)" opacity=".28"/>`;}
     if(t.full){const xa=X(s,t.tm[0]),xb=X(s,t.tm[t.tm.length-1]+STEP);
       if(xa-x0>1)g+=`<rect x="${x0}" y="${m.t}" width="${xa-x0}" height="${ph}" fill="var(--ink3)" opacity=".15"/>`;
       if(x1-xb>1)g+=`<rect x="${xb}" y="${m.t}" width="${x1-xb}" height="${ph}" fill="var(--ink3)" opacity=".15"/>`;}
-    for(const e of s.a.exc){const xa=X(s,e.start),xb=X(s,e.end);g+=`<rect x="${xa}" y="${m.t}" width="${Math.max(2,xb-xa)}" height="${ph}" fill="var(--crit)" opacity=".13"/>`;}
+    const exs=(hasComp()&&cc&&s.a.cp&&s.a.cp[cc])?s.a.cp[cc].exc:s.a.exc.filter(e=>!hasComp()||(e.comp||'')===(cc||''));
+    for(const e of exs){const xa=X(s,e.start),xb=X(s,e.end);g+=`<rect x="${xa}" y="${m.t}" width="${Math.max(2,xb-xa)}" height="${ph}" fill="var(--crit)" opacity=".13"/>`;}
     for(let i=0;i<t.tm.length-1;i++){if(t.tm[i+1]-t.tm[i]>CFG.gap){const xa=X(s,t.tm[i]),xb=X(s,t.tm[i+1]);g+=`<rect x="${xa}" y="${m.t}" width="${xb-xa}" height="${ph}" fill="var(--ink3)" opacity=".15"/>`;}}
     for(let i=0;i<t.tm.length;i++)if(t.door[i])g+=`<rect x="${X(s,t.tm[i])-1.5}" y="${m.t+ph-7}" width="${Math.max(3,STEP/total*pw)}" height="7" rx="2" fill="var(--warn)"/>`;
     for(const q of CR){g+=`<line x1="${x0}" x2="${x1}" y1="${Y(q.max)}" y2="${Y(q.max)}" stroke="var(--crit)" stroke-width="2" stroke-dasharray="6 4"/>`;
       g+=`<line x1="${x0}" x2="${x1}" y1="${Y(q.min)}" y2="${Y(q.min)}" stroke="var(--s1)" stroke-width="2" stroke-dasharray="6 4"/>`;}
     for(let p=NP-1;p>=0;p--){
+      if(hasComp()&&(PCt(t,p)||'')!==(cc||''))continue;
       let d='';for(let i=0;i<t.tm.length;i++){const brk=i>0&&t.tm[i]-t.tm[i-1]>CFG.gap;d+=(i===0||brk?'M':'L')+X(s,t.tm[i]).toFixed(1)+' '+Y(t.s[p][i]).toFixed(1)+' ';}
-      g+=`<path d="${d}" fill="none" stroke="var(--p${p+1})" stroke-width="${p===0?2:1.6}" ${PDASH[p]?`stroke-dasharray="${PDASH[p]}"`:''} opacity="${ST.pr.has(String(p))?1:.22}" stroke-linejoin="round"/>`;}
+      g+=`<path d="${d}" fill="none" stroke="var(--p${p+1})" stroke-width="2.2" opacity="${ST.pr.has(String(p))?1:.22}" stroke-linejoin="round"/>`;}
     if(multiDay){if(si%every===0)g+=`<text x="${(x0+x1)/2}" y="${H-12}" text-anchor="middle">${fmtD(t.day)}</text>`;}
   });
   if(!multiDay){const s=segs[0];for(let m_=Math.ceil(s.o/60)*60;m_<s.o+s.span;m_+=60){const x=X(s,m_);g+=`<line x1="${x}" x2="${x}" y1="${m.t+ph}" y2="${m.t+ph+4}" stroke="var(--ink3)"/><text x="${x}" y="${H-12}" text-anchor="middle">${fmtT(m_%1440)}</text>`;}}
-  for(const q of chartRules(segs[segs.length-1].a,NP)){
+  for(const q of chartRules(segs[segs.length-1].a,NP,cc)){
     g+=`<text x="${W-m.r+6}" y="${Y(q.max)+4}" style="fill:var(--crit);font-weight:700">${q.lab}máx ${q.max>0?'+':''}${q.max} °C</text><text x="${W-m.r+6}" y="${Y(q.min)+4}" style="fill:var(--s1);font-weight:700">${q.lab}mín ${q.min>0?'+':''}${q.min} °C</text>`;}
   g+=`<line id="xh" x1="0" x2="0" y1="${m.t}" y2="${m.t+ph}" stroke="var(--ink)" stroke-width="1" opacity="0"/><rect id="hit" x="${m.l}" y="${m.t}" width="${pw}" height="${ph}" fill="transparent"/>`;
   box.innerHTML=`<svg class="hov" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Curva de temperatura">${g}</svg>`;
@@ -1010,19 +1031,23 @@ function renderChart(R){
     for(const s of segs){const t=s.a.t;for(let i=0;i<t.tm.length;i++){const d=Math.abs(X(s,t.tm[i])-px);if(d<bd){bd=d;best={s,i};}}}
     if(!best)return;const {s,i}=best,t=s.a.t,r=s.a.rule,x=X(s,t.tm[i]);
     xh.setAttribute('x1',x);xh.setAttribute('x2',x);xh.setAttribute('opacity',.5);
-    let rows='';for(let p=0;p<NP;p++){const val=t.s[p][i],rr=ruleP(t,p,r),ok=val>=rr.min&&val<=rr.max,on=ST.pr.has(String(p))&&(!PCt(t,p)||ST.cp.has(PCt(t,p)));
+    let rows='';for(let p=0;p<NP;p++){if(hasComp()&&(PCt(t,p)||'')!==(cc||''))continue;const val=t.s[p][i],rr=ruleP(t,p,r),ok=val>=rr.min&&val<=rr.max,on=ST.pr.has(String(p))&&(!PCt(t,p)||ST.cp.has(PCt(t,p)));
       rows+=`<br><span style="color:var(--p${p+1})">●</span> Sonda ${pn(p)}${PCt(t,p)?' ('+CPN[PCt(t,p)]+')':''}: <b>${fmtC(val)}</b> ${on?(ok?'✓':'⚠'):'<i>(não avaliada)</i>'}`;}
-    showTip(`<b>${fmtDT(t.tm[i])}</b>${rows}<br>Faixa: ${chartRules(s.a,NP).map(q=>q.lab+q.min+' a '+q.max).join(' · ')} °C<br>Baú: ${t.door[i]?'aberto':'fechado'} · ${t.spd[i]} km/h<br>${esc(DATA.locs[t.loc[i]])}`,ev.clientX,ev.clientY);};
+    showTip(`<b>${fmtDT(t.tm[i])}</b>${rows}<br>Faixa: ${chartRules(s.a,NP,cc).map(q=>q.lab+q.min+' a '+q.max).join(' · ')} °C<br>Baú: ${t.door[i]?'aberto':'fechado'} · ${t.spd[i]} km/h<br>${esc(DATA.locs[t.loc[i]])}`,ev.clientX,ev.clientY);};
   svg.querySelector('#hit').onmouseleave=()=>{xh.setAttribute('opacity',0);hideTip();};
   const g1=R.vehs.get(ST.focus);
   $('#chartHint').innerHTML=`<b>${v.placa}</b> · ${esc(v.equip)} · ${esc(UNI[v.unidade].nome)} · ${NP} sonda(s) · ${segs.length} viagem(ns) · efetividade ${pct(effOf(g1))} · ${statusTag(effOf(g1))}`;
-  let lg='';for(let p=0;p<NP;p++)lg+=`<span style="${ST.pr.has(String(p))?'':'opacity:.5'}"><i style="height:0;border-top:3px ${PDASH[p]?'dashed':'solid'} var(--p${p+1});background:none"></i>Sonda ${pn(p)}${probeCompLab(trips,p)}</span>`;
+  let lg='';for(let p=0;p<NP;p++)lg+=`<span style="${ST.pr.has(String(p))?'':'opacity:.5'}"><i style="height:0;border-top:3px solid var(--p${p+1});background:none"></i>Sonda ${pn(p)}${probeCompLab(trips,p)}</span>`;
   $('#chartLegend').innerHTML=lg+(shAll()?'':'<span><i style="background:var(--ink3);opacity:.35;height:10px"></i>Fora do turno (não avaliado)</span>')+`<span><i style="background:var(--ok);opacity:.35;height:10px"></i>Faixa permitida</span><span><i style="height:0;border-top:2px dashed var(--crit);background:none"></i>Limite máximo</span><span><i style="height:0;border-top:2px dashed var(--s1);background:none"></i>Limite mínimo</span><span><i style="background:var(--crit);opacity:.3;height:10px"></i>Ocorrência</span><span><i style="background:var(--warn);height:7px"></i>Baú aberto / descarga</span><span><i style="background:var(--ink3);opacity:.4;height:10px"></i>Sem sinal</span>`;
 }
 
 /* ---- curva de todos os veículos juntos ---- */
 function renderChartAll(R,trips){
-  const box=$('#chart'),W=Math.max(360,box.clientWidth||900),H=380,m={l:48,r:20,t:12,b:34},pw=W-m.l-m.r,ph=H-m.t-m.b;
+  const box=$('#chart'),comps=chartComps(trips),bodies=chartBoxes(box,comps);
+  comps.forEach((c,i)=>drawAllChart(bodies[i],R,trips,c,comps.length>1?300:380));
+}
+function drawAllChart(box,R,trips,cc,H){
+  const W=Math.max(360,box.clientWidth||900),m={l:48,r:20,t:12,b:34},pw=W-m.l-m.r,ph=H-m.t-m.b;
   const sel=[...ST.pr].map(Number);
   /* uma linha por viagem — ou por viagem e compartimento, quando há dois compartimentos */
   const items=[];
@@ -1030,6 +1055,7 @@ function renderChartAll(R,trips){
     if(hasComp()){const gr={};for(const p of sp)(gr[PCt(t,p)]=gr[PCt(t,p)]||[]).push(p);
       for(const k in gr)items.push({a,t,ps:gr[k],c:k,rule:k?{min:DATA.cc[k].min,max:DATA.cc[k].max,tol:a.rule.tol}:a.rule});}
     else items.push({a,t,ps:sp.length?sp:[0],c:'',rule:a.rule});}
+  if(hasComp()&&cc!==undefined)for(let i=items.length-1;i>=0;i--)if(items[i].c!==(cc||''))items.splice(i,1);
   const val=(it,i)=>{let s=0;for(const p of it.ps)s+=it.t.s[p][i];return s/it.ps.length;};
   let t0=Infinity,t1=-Infinity,lo=Infinity,hi=-Infinity;
   for(const it of items){const t=it.t;t0=Math.min(t0,t.tm[0]);t1=Math.max(t1,t.tm[t.tm.length-1]+STEP);
@@ -1103,8 +1129,8 @@ function renderMeta(R){
 }
 
 function renderCauses(R){
-  const sc=showCause();$('#secCauses').classList.toggle('hide',!sc);$('#gridMeta').style.gridTemplateColumns=sc?'':'minmax(0,1fr)';
-  const ey=$('#gridMeta').previousElementSibling;if(ey)ey.textContent=sc?'Meta e causas':'Meta';
+  const sc=showCause();$('#secCauses').classList.toggle('hide',!sc);$('#gridMeta').classList.toggle('hide',!sc);
+  const ey=$('#gridMeta').previousElementSibling;if(ey)ey.classList.toggle('hide',!sc);
   if(!sc){$('#causes').innerHTML='';return;}
   const ent=Object.entries(R.causes).sort((a,b)=>b[1]-a[1]),tot=R.tot.tOut||1;
   $('#causes').innerHTML=ent.length?ent.map(([c,m])=>`<div style="margin:14px 0"><div style="display:flex;justify-content:space-between;gap:8px"><b>${c}</b><span>${fmtDur(m)} · ${pct(100*m/tot)}</span></div><div class="bar" style="height:10px;margin-top:5px"><i style="width:${100*m/tot}%;background:var(--s1)"></i></div></div>`).join('')+'<div class="hint" style="margin-top:16px">Causa provável por regra automática (início de viagem, duração, porta aberta, recorrência). Valide com o operador.</div>':'<div class="hint">Sem ocorrências de frio no recorte.</div>';
@@ -1222,7 +1248,7 @@ function exportCsv(){
   a.href=URL.createObjectURL(blob);a.download='ocorrencias_frio_ravex.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 
-let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(LAST){renderChart(LAST);renderMeta(LAST);renderAb(LAST);fitSvgs();}},120);});
+let rz;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(LAST){renderChart(LAST);renderAb(LAST);fitSvgs();}},120);});
 /* ============ 8) IMPORTAÇÃO (modelo de planilhas do sistema Ravex) ============ */
 const nrm=s=>String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
 const numOf=v=>{if(typeof v==='number')return v;const m=String(v==null?'':v).match(/-?\d+(?:[.,]\d+)?/);return m?parseFloat(m[0].replace(',','.')):NaN;};
