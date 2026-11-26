@@ -478,7 +478,7 @@ html[data-theme=dark] #plateReport{
 }
 .plate-chart-cross line{stroke:var(--ink2);stroke-width:1;stroke-dasharray:4 3}
 .plate-chart-tip{position:absolute;z-index:1;padding:7px 9px;width:max-content;max-width:min(200px,52%);
-  transform:translateY(-100%);top:max(68px,var(--tip-y));left:clamp(4px,calc(var(--tip-x) - 92px),calc(100% - min(204px,53%)));
+  transform:translateY(-100%);top:max(90px,var(--tip-y));left:clamp(4px,calc(var(--tip-x) - 92px),calc(100% - min(204px,53%)));
   border:1px solid var(--monitor-line);border-radius:6px;background:var(--card);box-shadow:var(--shadow);pointer-events:none;font-size:12px}
 .plate-chart-tip span{display:block}
 .plate-chart-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:5px 15px;padding:0 10px 9px;font-size:11px;color:var(--ink2)}
@@ -1300,11 +1300,11 @@ function plateTemp(n,rule){
 // Delimita os intervalos usados no cálculo e na curva de cada sonda.
 function forEachPlateInterval(series,onSample,onInterval){
   const from=ST.from*1440, to=(ST.to+1)*1440;
-  for(const samples of series){
+  for(const [seriesIndex,samples] of series.entries()){
     for(let i=0;i<samples.length;i+=2){
       const t=samples[i], value=samples[i+1], next=samples[i+2];
       if(t>=to)break;
-      if(t>=from&&shOn(t))onSample(t,value);
+      if(t>=from&&shOn(t))onSample(t,value,seriesIndex,i/2);
       if(!(next>t&&next-t<=CFG.gap))continue;
       const end=Math.min(to,next);
       for(let start=Math.max(from,t);start<end;){
@@ -1335,13 +1335,18 @@ function demoPlateTemps(trips){
   const byPlate=new Map();
   for(const t of trips){
     if(!ST.cli.has(t.cli))continue;
-    if(!byPlate.has(t.veic))byPlate.set(t.veic,[[],[]]);
-    const probes=byPlate.get(t.veic);
-    probes.forEach((series,p)=>{
+    if(!byPlate.has(t.veic))byPlate.set(t.veic,{temperatures:[[],[]],speeds:[[],[]]});
+    const {temperatures,speeds}=byPlate.get(t.veic);
+    temperatures.forEach((series,p)=>{
       if(!t.s[p])return;
-      const samples=[];
-      t.tm.forEach((minute,i)=>{if(Number.isFinite(t.s[p][i]))samples.push(minute,t.s[p][i]);});
+      const samples=[],gps=[];
+      t.tm.forEach((minute,i)=>{
+        if(!Number.isFinite(t.s[p][i]))return;
+        samples.push(minute,t.s[p][i]);
+        gps.push(t.spd?.[i]);
+      });
       series.push(samples);
+      speeds[p].push(gps);
     });
   }
   return byPlate;
@@ -1355,12 +1360,13 @@ function renderPlateReport(){
   if(!legacy){
     for(const v of activeVehicles()){
       if(!v.clientes.some(id=>ST.cli.has(id)))continue;
-      const raw=imported?.[v.id];
+      const raw=imported?.[v.id], rawSpeeds=DATA.plateSpeeds?.[v.id], example=demo?.get(v.id);
       const probes=PLATE_COMP.map((comp,i)=>{
         const probe=PNUM.indexOf(i+1);
         const series=probe>=0&&ST.pr.has(String(probe))&&ST.cp.has(comp)
-          ?(raw?[raw[i]]:demo?.get(v.id)?.[i]||[]):[];
-        return plateProbeStats(series,cc[comp]);
+          ?(raw?[raw[i]]:example?.temperatures[i]||[]):[];
+        const speeds=rawSpeeds?[rawSpeeds[i]]:example?.speeds[i];
+        return {...plateProbeStats(series,cc[comp]),speeds};
       });
       if(probes.some(p=>Number.isFinite(p.min)||Number.isFinite(p.eff)))PLATE_VIEW.rows.push({id:v.id,plate:v.placa,probes});
     }
@@ -1398,11 +1404,11 @@ const PLATE_PLOT={width:640,height:306,left:65,right:548,top:30,bottom:269};
 const outsidePlateRange=(value,rule)=>value<rule.min||value>rule.max;
 
 function plateChartData(probe){
-  const {series,rule}=probe, samples=[],segments=[];
+  const {series,rule,speeds}=probe, samples=[],segments=[];
   let low=rule.min,high=rule.max;
   const include=value=>{low=Math.min(low,value);high=Math.max(high,value);};
-  forEachPlateInterval(series,(time,value)=>{
-    samples.push({time,value});
+  forEachPlateInterval(series,(time,value,seriesIndex,sampleIndex)=>{
+    samples.push({time,value,speed:speeds?.[seriesIndex]?.[sampleIndex]});
     include(value);
   },(start,stop,value,t,next,nextValue)=>{
     const readAt=minute=>value+(nextValue-value)*(minute-t)/(next-t);
@@ -1535,12 +1541,14 @@ function plateHasTrace(segments,time){
   return left>0&&time<=segments[left-1].stop;
 }
 
+const fmtPlateSpeed=new Intl.NumberFormat('pt-BR',{maximumFractionDigits:2});
+
 function showPlateReading(plot,model,sample){
   const tip=$('.plate-chart-tip',plot),cross=$('.plate-chart-cross',plot);
   cross.setAttribute('visibility',sample?'visible':'hidden');
   tip.hidden=!sample;
   if(!sample)return;
-  const {time,value}=sample,{rule}=model;
+  const {time,value,speed}=sample,{rule}=model;
   const difference=value<rule.min?rule.min-value:value-rule.max;
   const status=difference>0?fmtC(difference)+(value<rule.min?' abaixo do limite':' acima do limite'):'Dentro da faixa';
   const x=model.x(time),y=model.y(value);
@@ -1548,7 +1556,8 @@ function showPlateReading(plot,model,sample){
   line.setAttribute('x1',x);line.setAttribute('x2',x);
   point.setAttribute('cx',x);point.setAttribute('cy',y);
   cross.classList.toggle('plate-bad',difference>0);
-  const content=`<b>${fmtDT(time)}</b><span>Temperatura: ${fmtC(value)}</span><span class="plate-${difference>0?'bad':'ok'}">${status}</span>`;
+  const gps=Number.isFinite(speed)?fmtPlateSpeed.format(speed)+' km/h':'—';
+  const content=`<b>${fmtDT(time)}</b><span>Temperatura: ${fmtC(value)}</span><span>Velocidade GPS: ${gps}</span><span class="plate-${difference>0?'bad':'ok'}">${status}</span>`;
   tip.style.setProperty('--tip-x',x/PLATE_PLOT.width*100+'%');
   tip.style.setProperty('--tip-y',y/PLATE_PLOT.height*100+'%');
   if(tip.innerHTML!==content)tip.innerHTML=content;
@@ -2199,7 +2208,7 @@ function build(files,opt){
       const g=c=>c==null?'':String(R[c]||'').trim();
       if(g(cU))vUni[p]=g(cU);if(g(cF))vFro[p]=g(cF);if(g(cC))vCli[p]=g(cC);}}
   /* linhas do histórico por placa */
-  const byPlate=new Map(),pCount=[0,0,0,0,0],seen=new Set();let dup=0,nRows=0,nMdvr=0,minTs=Infinity,maxTs=-Infinity;
+  const byPlate=new Map(),pCount=[0,0,0,0,0],seen=new Map();let dup=0,nRows=0,nMdvr=0,minTs=Infinity,maxTs=-Infinity;
   hist.forEach((f,fi)=>{const I=f.idx,c=k=>I[k],cT=c('emissao/envio'),cInf=c('informacao'),cIg=c('ignicao'),cEnt=c('entradas'),cDrv=c('motorista'),
     cEq=c('tipo do equipamento'),cSp=c('velocidade (gps)'),cLoc=c('ponto referencia'),cPl=c('placa')??c('veiculo');
     const cTp=[1,2,3,4,5].map(n=>c('temperatura '+n));
@@ -2215,11 +2224,19 @@ function build(files,opt){
       if(/inicio de descarga/.test(inf))desc=1;else if(/fim de descarga/.test(inf))desc=0;
       if(cIg!=null){const g=nrm(R[cIg]);if(g)ign=/^ligad/.test(g);}else if(/ignicao (acionada|ligada)/.test(inf))ign=true;else if(/ignicao (desacionada|desligada)/.test(inf))ign=false;
       const risk=RISK_RE.test(inf)&&!/sensor|ignicao|posicao|todos os sensores/.test(inf)?infO:null;
-      const sp=cSp!=null?numOf(R[cSp]):0;
+      const sp=cSp!=null?numOf(R[cSp]):NaN;
+      const gpsSpeed=Number.isFinite(sp)&&sp>=0?sp:NaN;
       let loc=cLoc!=null?String(R[cLoc]||'').replace(/^a\s+[\d.,]+\s*km\s+d[eo]\s+/i,'').trim():'';if(loc.length>80)loc=loc.slice(0,78)+'…';
-      const key=pl+'|'+ts+'|'+infO+'|'+temps.join(',');if(seen.has(key)){dup++;nRows--;continue;}seen.add(key);
+      const key=pl+'|'+ts+'|'+infO+'|'+temps.join(',');
+      const duplicate=seen.get(key);
+      if(duplicate){
+        if(!Number.isFinite(duplicate.gpsSpeed)&&Number.isFinite(gpsSpeed))duplicate.gpsSpeed=gpsSpeed;
+        dup++;nRows--;continue;
+      }
       let a=byPlate.get(pl);if(!a){a=[];byPlate.set(pl,a);}
-      a.push({ts,temps,sens,desc,ign,risk,spd:isFinite(sp)?sp:0,loc,drv:cDrv!=null?String(R[cDrv]||'').trim():'',eq});
+      const record={ts,temps,sens,desc,ign,risk,spd:isFinite(sp)?sp:0,gpsSpeed,loc,drv:cDrv!=null?String(R[cDrv]||'').trim():'',eq};
+      seen.set(key,record);
+      a.push(record);
     }});
   const pm=[0,1,2,3,4].filter(p=>pCount[p]>0);
   if(!pm.length)return{erro:'Nenhuma leitura de temperatura válida foi encontrada nas colunas Temperatura 1 a 5.'};
@@ -2227,7 +2244,7 @@ function build(files,opt){
   S.linhas=nRows;S.dup=dup;S.mdvr=nMdvr;S.sondas=pm.map(p=>p+1);S.ini=minTs;S.fim=maxTs;S.placas=byPlate.size;
   const base=Math.floor(minTs/1440)*1440,locs=['Sem localização'],locIx=new Map([['',0]]);
   const evtL=[],evtIx=new Map(),drvL=[],drvIx=new Map();
-  const plateTemps=Object.create(null);
+  const plateTemps=Object.create(null),plateSpeeds=Object.create(null);
   const NPm=pm.length,trips=[],vehInfo=[];let nBau=0,nDesc=0,nRisk=0,semPorta=0,semUnidade=0;
   const gap=120,pad=15;let gapW=0;
   [...byPlate.keys()].sort().forEach(pl=>{
@@ -2249,16 +2266,23 @@ function build(files,opt){
       sm.push({r,t,door:st,ev:chg,act:r.ign===true||st===1||chg||r.spd>0||!!r.risk});
     }
     if(!sm.length)return;
-    const probes=[[],[]];
-    for(const {ts,temps} of rows){
+    const probes=[[],[]],speeds=[[],[]];
+    for(const {ts,temps,gpsSpeed} of rows){
       probes.forEach((samples,p)=>{
         if(!Number.isFinite(temps[p]))return;
         const minute=ts-base, size=samples.length;
-        if(size&&samples[size-2]===minute)samples[size-1]=temps[p];
-        else samples.push(minute,temps[p]);
+        if(size&&samples[size-2]===minute){
+          const index=size/2-1;
+          if(Number.isFinite(gpsSpeed)||samples[size-1]!==temps[p])speeds[p][index]=gpsSpeed;
+          samples[size-1]=temps[p];
+        }else{
+          samples.push(minute,temps[p]);
+          speeds[p].push(gpsSpeed);
+        }
       });
     }
     plateTemps[pl]=probes.map(samples=>Float64Array.from(samples));
+    plateSpeeds[pl]=speeds.map(gps=>Float64Array.from(gps));
     /* janelas (viagens) */
     let wins=[],dayMode=false;
     const act=sm.map((s,i)=>s.act?i:-1).filter(i=>i>=0);
@@ -2307,7 +2331,7 @@ function build(files,opt){
   const cliente=[...cliMap.values()];
   const d0=new Date(base*60000),nd=Math.min(400,Math.floor((maxTs-base)/1440)+1);
   const periodo=fmtBR(minTs)+' a '+fmtBR(maxTs);
-  const DT={regioes:[...regs.values()],unidades:[...unis.values()],frotas:frs,clientes:cliente,veiculos:veic,motoristas:drvL,viagens:trips,locs,plateTemps,
+  const DT={regioes:[...regs.values()],unidades:[...unis.values()],frotas:frs,clientes:cliente,veiculos:veic,motoristas:drvL,viagens:trips,locs,plateTemps,plateSpeeds,
     meta:{cliente:opt.nome||cliente[0].nome,periodo}};
   Object.assign(S,{viagens:trips.length,veiculos:veic.length,motoristas:drvL.filter(m=>m.nome!=='Não informado').length,nBau,nDesc,nRisk,semPorta,semUnidade,
     unidades:unis.size,frotas:frs.length,clientes:cliente.length,nFro:Object.keys(vFro).length,nCli:Object.keys(vCli).length,uInfoN:Object.keys(uInfo).length,vUniN:Object.keys(vUni).length,eventos:evtL.length,dias:nd,porta:vehInfo.map(v=>v.fonte)});
