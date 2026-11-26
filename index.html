@@ -1558,6 +1558,7 @@ function pointPlateChart(event){
 $('#plateCharts').addEventListener('pointermove',pointPlateChart);
 $('#plateCharts').addEventListener('pointerdown',pointPlateChart);
 $('#plateCharts').addEventListener('pointerout',event=>{
+  if(event.pointerType==='touch')return;
   const plot=event.target.closest('.plate-plot');
   if(plot&&!plot.contains(event.relatedTarget))showPlateReading(plot,PLATE_CHARTS.get(plot.dataset.comp));
 });
