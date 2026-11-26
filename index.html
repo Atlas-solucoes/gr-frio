@@ -485,7 +485,7 @@ html[data-theme=dark] #plateReport{
 .plate-chart-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:5px 15px;padding:0 10px 9px;font-size:11px;color:var(--ink2)}
 .plate-chart-legend i{display:inline-block;vertical-align:middle;width:18px;height:4px;margin-right:4px;background:var(--monitor-curve);border-radius:4px}
 .plate-chart-legend .out i{background:linear-gradient(var(--monitor-curve) 0 25%,var(--monitor-bad) 25% 75%,var(--monitor-curve) 75%)}
-.plate-chart-empty{min-height:150px;display:grid;place-items:center;margin:0;color:var(--ink2)}
+.plate-chart-empty{min-height:150px}
 #plateTable td.plate-select{width:1%;white-space:nowrap}
 #plateTable button[data-view-plate]{min-width:62px;padding:3px 8px;border:1px solid var(--monitor-line);background:var(--card);border-radius:5px}
 #plateTable button[data-view-plate][aria-pressed=true]{border-color:var(--monitor-link);background:var(--monitor-focus)}
@@ -1424,7 +1424,7 @@ function renderPlateChart(probe,comp,plate){
     <dl class="plate-chart-metrics">${metric('Efetividade',plateEffectiveness(probe.eff))}${metric('Mínima',plateTemp(probe.min,rule))}${metric('Máxima',plateTemp(probe.max,rule))}</dl>
     </figcaption>${body}</figure>`;
   if(!Number.isFinite(probe.min)&&!Number.isFinite(probe.eff)){
-    return figure('<p class="plate-chart-empty">Sem leituras no período selecionado</p>');
+    return figure('<div class="plate-chart-empty" aria-hidden="true"></div>');
   }
   const model=plateChartData(probe);
   const {width,height,left,right,top,bottom}=PLATE_PLOT, plotWidth=right-left;
