@@ -517,8 +517,8 @@ html[data-report-empty] #filters>.fld:not(:has(#btnImp)){display:none!important}
 #plateTable thead th{position:static}
 #plateTable tbody th{position:static;background:inherit;text-align:left}
 #plateTable tbody tr:nth-child(even){background:var(--monitor-stripe)}
-#plateTable tbody tr[data-plate]:is(:hover,[data-selected]){background:var(--monitor-focus)}
-#plateTable tbody tr[data-plate]{cursor:pointer}
+#plateTable tbody tr[data-plate-chart]:is(:hover,[data-selected]){background:var(--monitor-focus)}
+#plateTable tbody tr[data-plate-chart]{cursor:pointer}
 #plateTable button{background:none;border:0;color:inherit;padding:4px;cursor:pointer;font:inherit;font-weight:700;text-align:inherit}
 #plateTable tbody button{color:var(--monitor-link)}
 #plateTable button:focus-visible{outline:2px solid var(--monitor-link);outline-offset:1px}
@@ -1430,7 +1430,8 @@ function renderPlateReport(){
         const speeds=rawSpeeds?[rawSpeeds[i]]:example?.speeds[i];
         return {...plateProbeStats(series,cc[comp]),speeds};
       });
-      if(probes.some(p=>Number.isFinite(p.min)||Number.isFinite(p.eff)))PLATE_VIEW.rows.push({id:v.id,plate:v.placa,name:v.nomeVeiculo||'',probes});
+      const hasReadings=probes.some(p=>Number.isFinite(p.min)||Number.isFinite(p.eff));
+      PLATE_VIEW.rows.push({id:v.id,plate:v.placa,name:v.nomeVeiculo||'',probes,hasReadings});
     }
   }
   const date=new Intl.DateTimeFormat('pt-BR');
@@ -1668,7 +1669,7 @@ $('#plateCharts').addEventListener('keydown',event=>{
 });
 
 function updatePlateSelection(rows){
-  const row=rows.find(r=>r.id===PLATE_VIEW.selected);
+  const row=rows.find(r=>r.hasReadings&&r.id===PLATE_VIEW.selected);
   $('#plateDetail').innerHTML=row
     ? `<span><small>Placa em foco</small><strong>${esc(row.plate)}</strong></span>`
     : '';
@@ -1676,7 +1677,7 @@ function updatePlateSelection(rows){
   $('#plateDetail').hidden=!row;
   $('#plateCharts').hidden=!row;
   $('#plateCharts').innerHTML=row?row.probes.map((p,i)=>renderPlateChart(p,PLATE_COMP[i],row.plate)).join(''):'';
-  document.querySelectorAll('#plateTable tbody tr[data-plate]').forEach(tr=>{
+  document.querySelectorAll('#plateTable tbody tr[data-plate-chart]').forEach(tr=>{
     const selected=tr.dataset.plate===row?.id;
     tr.toggleAttribute('data-selected',selected);
     const button=tr.querySelector('[data-view-plate]');
@@ -1689,9 +1690,9 @@ function updatePlateSelection(rows){
 function renderPlateRows(){
   const rows=plateRows();
   const legacy=DATA.meta&&!DATA.plateTemps;
-  $('#plateTable tbody').innerHTML=rows.map(r=>`<tr data-plate="${esc(r.id)}"><td class="plate-select"><button type="button" data-view-plate aria-label="Ver gráficos de ${esc(r.plate)}" aria-controls="plateCharts" aria-pressed="false">Ver</button></td><th scope="row">${esc(r.plate)}</th><td>${esc(r.name||'—')}</td>${
+  $('#plateTable tbody').innerHTML=rows.map(r=>`<tr data-plate="${esc(r.id)}"${r.hasReadings?' data-plate-chart':''}><td class="plate-select">${r.hasReadings?`<button type="button" data-view-plate aria-label="Ver gráficos de ${esc(r.plate)}" aria-controls="plateCharts" aria-pressed="false">Ver</button>`:''}</td><th scope="row">${esc(r.plate)}</th><td>${esc(r.name||'—')}</td>${
     r.probes.map(p=>`<td>${plateEffectiveness(p.eff)}</td><td>${plateTemp(p.min,p.rule)}</td><td>${plateTemp(p.max,p.rule)}</td>`).join('')}</tr>`).join('')
-    ||`<tr><td colspan="9">${legacy?'Reimporte o Histórico de Veículo original para calcular os indicadores a partir das leituras de cada sonda.':'Nenhuma placa com leitura no recorte selecionado.'}</td></tr>`;
+    ||`<tr><td colspan="9">${legacy?'Reimporte o Histórico de Veículo original para calcular os indicadores a partir das leituras de cada sonda.':'Nenhuma placa corresponde aos filtros selecionados.'}</td></tr>`;
   $('#plateFoot').textContent=rows.length+' placa(s) · Efetividade = % do tempo monitorado dentro da faixa. Efetividade em verde na meta, âmbar até 10 p.p. abaixo e vermelho nas demais. Temperaturas em vermelho estão fora da faixa.';
   $('#btnCsv').disabled=!rows.length;
   document.querySelectorAll('#plateTable thead button').forEach(b=>{
@@ -1712,7 +1713,7 @@ $('#plateTable').onclick=e=>{
     renderPlateRows();
     return;
   }
-  const row=e.target.closest('tr[data-plate]');
+  const row=e.target.closest('tr[data-plate-chart]');
   if(row){
     const close=e.target.closest('[data-view-plate]')&&PLATE_VIEW.selected===row.dataset.plate;
     PLATE_VIEW.selected=close?null:row.dataset.plate;
