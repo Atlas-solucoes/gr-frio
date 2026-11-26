@@ -505,6 +505,10 @@ html[data-theme=dark] #plateReport{
   html[data-layout=placas] #filters .fld:has(#btnImp)>div{flex-direction:column}
 }
 #clearImportStatus:empty{display:none}
+#emptyReport{margin-top:18px}
+#emptyReport[hidden]{display:none}
+html[data-report-empty] body>.wrap>:is(#plateReport,#dash,#cfg,#pickEmpty,[data-sec]),
+html[data-report-empty] #filters>.fld:not(:has(#btnImp)){display:none!important}
 .plate-scroll{overflow:auto;max-height:65vh}
 #plateTable{width:100%;min-width:660px;border-collapse:separate;border-spacing:0}
 #plateTable :is(th,td){padding:5px 9px;border-bottom:1px solid var(--monitor-line);text-align:center}
@@ -603,6 +607,11 @@ s.onchange=function(){ap(s.value);try{localStorage.setItem(K,s.value)}catch(e){}
   <div class="tscroll" style="max-height:260px"><table id="tblProfiles"></table></div>
   <div class="hint" style="margin-top:10px">No modo “por cliente / carga”, cada viagem é avaliada pela faixa e tolerância do cliente. No modo “global”, vale a faixa única acima para todos.</div>
   </div>
+</section>
+
+<section class="card" id="emptyReport" aria-labelledby="emptyReportTitle" hidden>
+  <h2 id="emptyReportTitle">Nenhum dado importado</h2>
+  <p>Use <strong>Importar dados</strong> para abrir um novo arquivo ou <strong>Histórico</strong> para recuperar um relatório salvo.</p>
 </section>
 
 <section id="plateReport" aria-labelledby="plateTitle">
@@ -1305,7 +1314,16 @@ function probesLabel(){
   return a.length?a.map(i=>'Sonda '+pn(i)).join(', '):'Nenhuma';}
 
 function refresh(keepDrawer){
+  const empty=DATA.empty===true;
+  document.documentElement.toggleAttribute('data-report-empty',empty);
+  $('#emptyReport').hidden=!empty;
+  $('#btnPrint').disabled=empty;
   syncCfg();syncFilters();
+  if(empty){
+    LAST=null;
+    $('#btnCsv').disabled=true;
+    return;
+  }
   if(isPlateView()){
     renderPlateReport();
     if(!keepDrawer&&$('#drawer').classList.contains('open'))drawVehList();
@@ -2402,7 +2420,12 @@ function applyDataset(B){
   ST.sh.clear();TURNOS.forEach(t=>ST.sh.add(t.id));ST.off.clear();ST.group='total';ST.heatG='total';ST.heatI='all';ST.abG='veiculo';ST.focus=null;ST.focusDay='all';ST.lvl='all';ST.tipo='all';ST.q='';
   PLATE_VIEW.selected=null;$('#plateQuery').value='';
   $('#occQ').value='';ST.ptype='custom';ST.from=0;ST.to=NDAYS-1;
-  CFG.mode='client';CFG.prof={};saveCfg();
+  if(!DATA.empty){CFG.mode='client';CFG.prof={};saveCfg();}
+}
+const EMPTY_REPORT='empty', DEMO_REPORT='demo';
+function applyEmptyReport(){
+  const data={empty:true,regioes:[],unidades:[],frotas:[],clientes:[],veiculos:[],motoristas:[],viagens:[],locs:[]};
+  applyDataset({DAY0:new Date(),NDAYS:1,DATA:data,EVT:[],NPROBES:0,PNUM:[]});
 }
 function idb(mode,fn,store='kv'){return new Promise((res,rej)=>{const o=indexedDB.open('ravexFrio',2);
   o.onupgradeneeded=()=>{const d=o.result;['kv','rep','idx'].forEach(n=>{if(!d.objectStoreNames.contains(n))d.createObjectStore(n);});};
@@ -2435,7 +2458,7 @@ function initHist(){
     button.disabled=true;
     status.textContent='';
     try{
-      await idb('readwrite',s=>s.delete('current'));
+      await idb('readwrite',s=>s.put(EMPTY_REPORT,'current'));
       location.reload();
     }catch(error){
       status.textContent='Não foi possível limpar o relatório aberto. Tente novamente.';
@@ -2477,7 +2500,7 @@ function applyCaps(){
   $('#fFrom').min=$('#fTo').min=iso(0);$('#fFrom').max=$('#fTo').max=iso(NDAYS-1);
   const pill=$('#pillData'),imp=!!DATA.meta;
   T('btnClearImport',imp);
-  pill.textContent=imp?'Dados importados · '+DATA.meta.cliente+' · '+DATA.meta.periodo:'Dados fictícios para demonstração';
+  pill.textContent=imp?'Dados importados · '+DATA.meta.cliente+' · '+DATA.meta.periodo:DATA.empty?'Nenhum dado importado':'Dados fictícios para demonstração';
   const ri=$('#repId');if(imp&&DATA.meta.num){const m=DATA.meta;ri.innerHTML=`Relatório <b>Nº ${String(m.num).padStart(4,'0')}</b> · <b>${esc(m.cliente)}</b>${m.carga?' · '+esc(m.carga):''} · período ${esc(m.periodo)} · faixa ${faixaTxt(m)} · emitido em ${fmtEmit(m.emitido)}`;ri.style.display='';}else{ri.textContent='';ri.style.display='none';}
   pill.style.background=imp?'rgba(46,160,110,.22)':'';pill.style.color=imp?'#9be3c0':'';
 }
@@ -2560,13 +2583,22 @@ function initImport(){
     $('#impModal').classList.remove('open');refresh();window.scrollTo({top:0,behavior:'smooth'});
   };
   $('#impCli').oninput=()=>{$('#impCli').style.outline='';};
-  $('#impDemo').onclick=async()=>{try{await idb('readwrite',s=>s.delete('current'));}catch(e){}
+  $('#impDemo').onclick=async()=>{try{await idb('readwrite',s=>s.put(DEMO_REPORT,'current'));}catch(e){}
     try{localStorage.removeItem('ravexFrio.cfg');}catch(e){}location.reload();};
 }
 
 /* ============ INÍCIO ============ */
 (async()=>{
-  try{const id=await idb('readonly',s=>s.get('current'));const B=id&&await idb('readonly',s=>s.get(id),'rep');if(B&&B.DATA)applyDataset(B);}catch(e){}
+  try{
+    const id=await idb('readonly',s=>s.get('current'));
+    if(id===EMPTY_REPORT||(!id&&(await listIdx()).length)){
+      applyEmptyReport();
+    }else if(id&&id!==DEMO_REPORT){
+      const B=await idb('readonly',s=>s.get(id),'rep');
+      if(B?.DATA)applyDataset(B);
+      else applyEmptyReport();
+    }
+  }catch(e){applyEmptyReport();}
   initFilters();initCfg();initImport();initHist();refresh();
   window.__ready=true;
 })();
