@@ -524,6 +524,8 @@ html[data-report-empty] #filters>.fld:not(:has(#btnImp)){display:none!important}
 #plateTable tbody tr:nth-child(even){background:var(--monitor-stripe)}
 #plateTable tbody tr[data-plate-chart]:is(:hover,[data-selected]){background:var(--monitor-focus)}
 #plateTable tbody tr[data-plate-chart]{cursor:pointer}
+#plateTable thead th.plate-effectiveness{background:color-mix(in srgb,var(--monitor-head),var(--monitor-link) 12%)}
+#plateTable tbody td.plate-effectiveness{background:color-mix(in srgb,var(--monitor-link) 7%,transparent)}
 #plateTable button{background:none;border:0;color:inherit;padding:4px;cursor:pointer;font:inherit;font-weight:700;text-align:inherit}
 #plateTable tbody button{color:var(--monitor-link)}
 #plateTable button:focus-visible{outline:2px solid var(--monitor-link);outline-offset:1px}
@@ -647,10 +649,10 @@ s.onchange=function(){ap(s.value);try{localStorage.setItem(K,s.value)}catch(e){}
           <th scope="colgroup" colspan="3" id="plateFrozen">Temperatura 2 · Congelado</th>
         </tr>
         <tr>
-          <th scope="col" headers="plateCold"><button type="button" data-sort="0,eff">Efetividade <span aria-hidden="true">↕</span></button></th>
+          <th scope="col" headers="plateCold" class="plate-effectiveness"><button type="button" data-sort="0,eff">Efetividade <span aria-hidden="true">↕</span></button></th>
           <th scope="col" headers="plateCold"><button type="button" data-sort="0,min">Mínima <span aria-hidden="true">↕</span></button></th>
           <th scope="col" headers="plateCold"><button type="button" data-sort="0,max">Máxima <span aria-hidden="true">↕</span></button></th>
-          <th scope="col" headers="plateFrozen"><button type="button" data-sort="1,eff">Efetividade <span aria-hidden="true">↕</span></button></th>
+          <th scope="col" headers="plateFrozen" class="plate-effectiveness"><button type="button" data-sort="1,eff">Efetividade <span aria-hidden="true">↕</span></button></th>
           <th scope="col" headers="plateFrozen"><button type="button" data-sort="1,min">Mínima <span aria-hidden="true">↕</span></button></th>
           <th scope="col" headers="plateFrozen"><button type="button" data-sort="1,max">Máxima <span aria-hidden="true">↕</span></button></th>
         </tr>
@@ -1586,7 +1588,7 @@ function renderPlateRows(){
   const rows=plateRows();
   const legacy=DATA.meta&&!DATA.plateTemps;
   $('#plateTable tbody').innerHTML=rows.map(r=>`<tr data-plate="${esc(r.id)}"${r.hasReadings?' data-plate-chart':''}><td class="plate-select">${r.hasReadings?`<button type="button" data-view-plate aria-label="Ver gráficos de ${esc(r.plate)}" aria-controls="plateCharts" aria-pressed="false">Ver</button>`:''}</td><th scope="row">${esc(r.plate)}</th><td>${esc(r.name||'—')}</td>${
-    r.probes.map(p=>`<td>${plateEffectiveness(p.eff)}</td><td>${plateTemp(p.min,p.rule)}</td><td>${plateTemp(p.max,p.rule)}</td>`).join('')}</tr>`).join('')
+    r.probes.map(p=>`<td class="plate-effectiveness">${plateEffectiveness(p.eff)}</td><td>${plateTemp(p.min,p.rule)}</td><td>${plateTemp(p.max,p.rule)}</td>`).join('')}</tr>`).join('')
     ||`<tr><td colspan="9">${legacy?'Reimporte o Histórico de Veículo original para calcular os indicadores a partir das leituras de cada sonda.':'Nenhuma placa corresponde aos filtros selecionados.'}</td></tr>`;
   $('#plateFoot').textContent=rows.length+' placa(s) · Efetividade = % do tempo monitorado dentro da faixa. Efetividade em verde na meta, âmbar até 10 p.p. abaixo e vermelho nas demais. Temperaturas em vermelho estão fora da faixa.';
   $('#btnCsv').disabled=!rows.length;
