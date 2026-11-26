@@ -362,6 +362,12 @@ html[data-dash=escuro] #dash .dtitle b{color:var(--ink)}
 #cfg .g4 .tscroll:has(input:disabled)::before{content:"Desativado: no modo faixa única, vale a faixa de cima para todos os clientes.";display:block;font-size:12.5px;font-weight:600;color:var(--ink2);margin-bottom:8px}
 @media print{html[data-dash] #dash{zoom:1.1}}
 @media print{body{padding-bottom:0!important}.wrap:not(header .wrap){padding-bottom:0!important}.foot{margin-top:0;padding-bottom:0}}
+.calendar-controls{display:flex;align-items:stretch;gap:6px;min-width:0}
+.calendar-controls input{min-width:0;width:100%;flex:1}
+.calendar-step{display:grid;grid-template-rows:repeat(2,1fr);gap:2px}
+.calendar-step[hidden]{display:none}
+.calendar-step .btn{display:grid;place-items:center;padding:2px 8px;min-width:28px;line-height:1;font-size:11px;border-radius:6px}
+.calendar-step .btn:disabled{opacity:.4;cursor:default}
 </style>
 </head>
 <style>@media print{#tblOcc{width:100%!important;table-layout:fixed;font-size:8.5px}#tblOcc th,#tblOcc td{padding:5px 4px;word-break:break-word;overflow-wrap:anywhere;white-space:normal}.card:has(#tblOcc){overflow:hidden}}</style>
@@ -561,7 +567,16 @@ s.onchange=function(){ap(s.value);try{localStorage.setItem(K,s.value)}catch(e){}
 <section class="card filters" id="filters">
   <div class="fld"><label>Período</label>
     <select id="fPType"><option value="dia">Dia</option><option value="semana">Semana</option><option value="quinzena">Quinzena</option><option value="mes">Mês</option><option value="custom">Personalizado</option></select></div>
-  <div class="fld" id="fCalendarBox" style="display:none"><label for="fCalendar">Calendário</label><input type="date" id="fCalendar" lang="pt-BR" required></div>
+  <div class="fld" id="fCalendarBox" style="display:none">
+    <label for="fCalendar">Calendário</label>
+    <div class="calendar-controls">
+      <input type="date" id="fCalendar" lang="pt-BR" required>
+      <div class="calendar-step" id="fCalendarStep" hidden>
+        <button type="button" class="btn" id="fDayNext" aria-label="Próximo dia" title="Próximo dia">▲</button>
+        <button type="button" class="btn" id="fDayPrev" aria-label="Dia anterior" title="Dia anterior">▼</button>
+      </div>
+    </div>
+  </div>
   <div class="fld" id="fPSelBox"><label>Qual</label><select id="fPSel" style="min-width:250px"></select></div>
   <div id="fCustom" style="display:none;gap:12px"><div class="fld"><label>De</label><input type="date" id="fFrom"></div><div class="fld"><label>Até</label><input type="date" id="fTo"></div></div>
   <div class="fld ms" id="msTur"><label>Turno</label></div>
@@ -1164,6 +1179,17 @@ function makeMS(id,optsFn,set){
 document.addEventListener('click',()=>document.querySelectorAll('.ms.open').forEach(x=>x.classList.remove('open')));
 
 const drawers=[];
+function pickCalendarDay(day){
+  if(!CALENDAR_TYPES.has(ST.ptype))return false;
+  const period=periodOptions(ST.ptype).find(p=>p.from<=day&&day<=p.to);
+  if(!period)return false;
+  ST.from=period.from;ST.to=period.to;ST.pid=period.id;
+  refresh();
+  return true;
+}
+function moveCalendarDay(delta){
+  if(ST.ptype==='dia')pickCalendarDay(ST.from+delta);
+}
 function initFilters(){
   drawers.push(makeMS('msTur',()=>TURNOS,ST.sh));
   drawers.push(makeMS('msReg',()=>DATA.regioes,ST.reg));
@@ -1178,16 +1204,11 @@ function initFilters(){
     if(ST.ptype!=='custom'){const min={dia:1,semana:7,quinzena:14,mes:28}[ST.ptype],o=periodOptions(ST.ptype),f=o.find(x=>x.to-x.from+1>=min)||o[0];ST.pid=f.id;ST.from=f.from;ST.to=f.to;}
     refresh();};
   $('#fCalendar').onchange=e=>{
-    if(!CALENDAR_TYPES.has(ST.ptype))return;
-    const input=e.target,day=dayFromIso(input.value);
-    const period=input.validity.valid&&periodOptions(ST.ptype).find(p=>p.from<=day&&day<=p.to);
-    if(!period){
-      input.value=iso(ST.from);
-      return;
-    }
-    ST.from=period.from;ST.to=period.to;ST.pid=period.id;
-    refresh();
+    const input=e.target;
+    if(!input.validity.valid||!pickCalendarDay(dayFromIso(input.value)))input.value=iso(ST.from);
   };
+  $('#fDayNext').onclick=()=>moveCalendarDay(1);
+  $('#fDayPrev').onclick=()=>moveCalendarDay(-1);
   $('#fPSel').onchange=e=>{const o=periodOptions(ST.ptype).find(x=>x.id===e.target.value);if(o){ST.pid=o.id;ST.from=o.from;ST.to=o.to;}refresh();};
     $('#fFrom').onchange=e=>{ST.from=Math.max(0,Math.min(NDAYS-1,dayFromIso(e.target.value)));if(ST.from>ST.to)ST.to=ST.from;refresh();};
   $('#fTo').onchange=e=>{ST.to=Math.max(0,Math.min(NDAYS-1,dayFromIso(e.target.value)));if(ST.to<ST.from)ST.from=ST.to;refresh();};
@@ -1216,6 +1237,9 @@ function syncFilters(){
   $('#fPType').value=ST.ptype;
   const isC=ST.ptype==='custom', hasCalendar=CALENDAR_TYPES.has(ST.ptype);
   $('#fCalendarBox').style.display=hasCalendar?'flex':'none';
+  $('#fCalendarStep').hidden=ST.ptype!=='dia';
+  $('#fDayPrev').disabled=ST.from<=0;
+  $('#fDayNext').disabled=ST.to>=NDAYS-1;
   $('#fPSelBox').style.display=isC?'none':'';
   $('#fCustom').style.display=isC?'flex':'none';
   if(hasCalendar){
