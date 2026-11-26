@@ -493,6 +493,18 @@ html[data-theme=dark] #plateReport{
   .plate-charts{grid-template-columns:1fr}
   #plateDetail{scroll-margin-top:12px}
 }
+@media(min-width:960px) and (max-width:1099px){
+  html[data-layout=placas] body>.wrap{display:grid;grid-template-columns:225px minmax(0,1fr);gap:0 16px;align-items:start}
+  html[data-layout=placas] body>.wrap>*{grid-column:2;min-width:0}
+  html[data-layout=placas] #filters{grid-column:1;grid-row:1/span 5;position:sticky;top:12px;margin:14px 0 0;
+    max-height:calc(100vh - 24px);overflow:auto;display:flex;flex-direction:column;flex-wrap:nowrap;align-items:stretch}
+  html[data-layout=placas] #filters .fld{min-width:0;width:100%}
+  html[data-layout=placas] #filters .ms .panel{position:static;margin-top:4px;min-width:0;max-height:220px}
+  html[data-layout=placas] #filters #fPSel{min-width:0!important;width:100%}
+  html[data-layout=placas] #filters #fCustom,
+  html[data-layout=placas] #filters .fld:has(#btnImp)>div{flex-direction:column}
+}
+#clearImportStatus:empty{display:none}
 .plate-scroll{overflow:auto;max-height:65vh}
 #plateTable{width:100%;min-width:660px;border-collapse:separate;border-spacing:0}
 #plateTable :is(th,td){padding:5px 9px;border-bottom:1px solid var(--monitor-line);text-align:center}
@@ -558,7 +570,7 @@ s.onchange=function(){ap(s.value);try{localStorage.setItem(K,s.value)}catch(e){}
   <div class="fld ms" id="msPr"><label>Sonda de temperatura</label></div>
   <div class="fld"><label>Veículos no relatório</label><button class="btn" id="btnVeh">—</button></div>
   <div class="fld"><label>&nbsp;</label><button class="btn primary" id="btnCfg">⚙ Faixa e regras</button></div>
-  <div class="fld" style="margin-left:auto"><label>&nbsp;</label><div style="display:flex;gap:8px"><button class="btn" id="btnHist">🕘 Histórico</button><button class="btn impbtn" id="btnImp">⬆ Importar dados</button></div></div>
+  <div class="fld" style="margin-left:auto"><label>&nbsp;</label><div style="display:flex;gap:8px"><button class="btn" id="btnHist">🕘 Histórico</button><button class="btn impbtn" id="btnImp">⬆ Importar dados</button><button type="button" class="btn hide" id="btnClearImport">Limpar dados importados</button></div><small id="clearImportStatus" role="status"></small></div>
   <div class="fld pickbox"><label>Mostrar no relatório <span id="pickCount"></span></label><div class="pickbtns"><button type="button" class="btn" id="pickAll">Marcar todos</button><button type="button" class="btn" id="pickNone">Retirar todos</button></div><div id="pickList"></div></div>
 </section>
 
@@ -2418,6 +2430,18 @@ async function histRender(){
     <div style="display:flex;gap:6px"><button class="btn primary" data-o="${x.id}">Abrir</button><button class="btn" data-d="${x.id}" title="Excluir">🗑</button></div></div>`).join('')||'<div class="hint" style="padding:12px">Nada encontrado.</div>';
 }
 function initHist(){
+  $('#btnClearImport').onclick=async e=>{
+    const button=e.currentTarget,status=$('#clearImportStatus');
+    button.disabled=true;
+    status.textContent='';
+    try{
+      await idb('readwrite',s=>s.delete('current'));
+      location.reload();
+    }catch(error){
+      status.textContent='Não foi possível limpar o relatório aberto. Tente novamente.';
+      button.disabled=false;
+    }
+  };
   $('#btnHist').onclick=()=>{$('#histQ').value='';$('#histModal').classList.add('open');histRender();};
   $('#histClose').onclick=()=>$('#histModal').classList.remove('open');
   $('#histModal').onclick=e=>{if(e.target.id==='histModal')$('#histModal').classList.remove('open');};
@@ -2442,7 +2466,8 @@ function computeCaps(){
 function applyCaps(){
   computeCaps();
   const T=(id,on)=>$('#'+id).classList.toggle('hide',!on);
-  T('msReg',CAPS.regiao);T('msUni',CAPS.unidade);T('msFro',CAPS.frota);T('msCli',CAPS.cliente);T('msPr',CAPS.sondas);T('msCp',hasComp());T('fldEq',CAPS.equip);
+  const plateView=isPlateView();
+  T('msReg',plateView||CAPS.regiao);T('msUni',plateView||CAPS.unidade);T('msFro',plateView||CAPS.frota);T('msCli',CAPS.cliente);T('msPr',CAPS.sondas);T('msCp',hasComp());T('fldEq',CAPS.equip);
   T('secDrv',CAPS.motorista);T('segTipo',CAPS.risco);
   if(!CAPS.risco)ST.tipo='all';
   $('#chipsEq').innerHTML=EQUIPS.map(e=>`<span class="chip" data-e="${esc(e)}">${esc(e)}</span>`).join('');
@@ -2451,6 +2476,7 @@ function applyCaps(){
   $('#segGroup').innerHTML=Object.entries(GROUPS).map(([k,l])=>`<button data-v="${k}">${l}</button>`).join('');
   $('#fFrom').min=$('#fTo').min=iso(0);$('#fFrom').max=$('#fTo').max=iso(NDAYS-1);
   const pill=$('#pillData'),imp=!!DATA.meta;
+  T('btnClearImport',imp);
   pill.textContent=imp?'Dados importados · '+DATA.meta.cliente+' · '+DATA.meta.periodo:'Dados fictícios para demonstração';
   const ri=$('#repId');if(imp&&DATA.meta.num){const m=DATA.meta;ri.innerHTML=`Relatório <b>Nº ${String(m.num).padStart(4,'0')}</b> · <b>${esc(m.cliente)}</b>${m.carga?' · '+esc(m.carga):''} · período ${esc(m.periodo)} · faixa ${faixaTxt(m)} · emitido em ${fmtEmit(m.emitido)}`;ri.style.display='';}else{ri.textContent='';ri.style.display='none';}
   pill.style.background=imp?'rgba(46,160,110,.22)':'';pill.style.color=imp?'#9be3c0':'';
