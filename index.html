@@ -446,20 +446,45 @@ html[data-theme=dark] #plateReport{
 .plate-detail strong{font-size:14px;white-space:nowrap}
 .plate-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:4px 14px 12px}
 .plate-charts[hidden]{display:none}
-.plate-charts figure{margin:0;padding:8px 9px 4px;border:1px solid var(--monitor-line);border-radius:6px;break-inside:avoid}
-.plate-charts figcaption{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 12px}
-.plate-charts figcaption small{color:var(--ink2)}
-.plate-charts svg{display:block;width:100%;height:auto;max-height:185px}
-.plate-charts svg text{fill:var(--ink2);font-size:11px}
+.plate-charts figure{min-width:0;margin:0;border:1px solid var(--monitor-line);border-radius:8px;break-inside:avoid}
+.plate-charts figcaption{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 14px;
+  padding:10px 12px;background:var(--monitor-head);border-radius:7px 7px 0 0}
+.plate-chart-title{display:grid;gap:3px}
+.plate-chart-title b{font-size:17px}
+.plate-charts figcaption small{color:var(--ink2);font-size:11px}
+.plate-chart-metrics{display:flex;gap:8px 14px;flex-wrap:wrap;margin:0}
+.plate-chart-metrics dt{font-size:11px;color:var(--ink2)}
+.plate-chart-metrics dd{margin:2px 0 0;font-size:14px;font-weight:700}
+.plate-plot{position:relative}
+.plate-plot svg{display:block;width:100%;height:auto;touch-action:pan-y}
+.plate-plot svg:focus-visible{outline:2px solid var(--monitor-link);outline-offset:-2px}
+.plate-plot svg text{fill:var(--ink2);font-size:13px}
 .plate-chart-grid{stroke:var(--monitor-line);stroke-width:1}
-.plate-chart-range{fill:var(--okbg);stroke:var(--monitor-ok);stroke-width:.7;stroke-dasharray:3 3}
-.plate-chart-line{fill:none;stroke:var(--monitor-link);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-.plate-chart-empty{min-height:100px;display:grid;place-items:center;margin:0;color:var(--ink2)}
+.plate-chart-range{fill:var(--okbg)}
+.plate-chart-limit{stroke:var(--monitor-ok);stroke-width:1;stroke-dasharray:4 3}
+.plate-plot svg .plate-limit-label{fill:var(--monitor-ok);font-weight:700}
+.plate-chart-gap{fill:var(--ink3);fill-opacity:.18}
+.plate-chart-line{fill:none;stroke:var(--monitor-link);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.plate-chart-out{stroke:var(--monitor-bad)}
+.plate-extreme circle,.plate-chart-cross circle{fill:var(--card);stroke:var(--monitor-link);stroke-width:2}
+.plate-extreme.plate-bad circle,.plate-chart-cross.plate-bad circle{stroke:var(--monitor-bad)}
+.plate-plot svg .plate-extreme text,.plate-plot svg .plate-gap-label{
+  fill:var(--ink);font-weight:700;paint-order:stroke;stroke:var(--card);stroke-width:4;stroke-linejoin:round}
+.plate-chart-cross line{stroke:var(--ink2);stroke-width:1;stroke-dasharray:4 3}
+.plate-chart-tip{position:absolute;z-index:1;padding:7px 9px;width:max-content;max-width:min(200px,52%);
+  transform:translateY(-100%);top:max(68px,var(--tip-y));left:clamp(4px,calc(var(--tip-x) - 92px),calc(100% - min(204px,53%)));
+  border:1px solid var(--monitor-line);border-radius:6px;background:var(--card);box-shadow:var(--shadow);pointer-events:none;font-size:12px}
+.plate-chart-tip span{display:block}
+.plate-chart-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:5px 15px;padding:0 10px 9px;font-size:11px;color:var(--ink2)}
+.plate-chart-legend i{display:inline-block;vertical-align:middle;width:16px;margin-right:4px;border-top:3px solid var(--monitor-link)}
+.plate-chart-legend .out i{border-color:var(--monitor-bad)}
+.plate-chart-legend .gap i{border-top:3px dashed var(--ink3)}
+.plate-chart-empty{min-height:150px;display:grid;place-items:center;margin:0;color:var(--ink2)}
 #plateTable td.plate-select{width:1%;white-space:nowrap}
 #plateTable button[data-view-plate]{min-width:62px;padding:3px 8px;border:1px solid var(--monitor-line);background:var(--card);border-radius:5px}
 #plateTable button[data-view-plate][aria-pressed=true]{border-color:var(--monitor-link);background:var(--monitor-focus)}
 #plateDetail{scroll-margin-top:140px}
-@media(max-width:700px){
+@media(max-width:850px){
   .plate-charts{grid-template-columns:1fr}
   #plateDetail{scroll-margin-top:12px}
 }
@@ -490,6 +515,7 @@ html[data-theme=dark] #plateReport{
   #plateTable tr{break-inside:avoid}
   #plateTable .plate-select{display:none}
   .plate-charts{grid-template-columns:repeat(2,minmax(0,1fr));break-inside:avoid}
+  .plate-chart-tip,.plate-chart-cross{display:none}
   .plate-tools input{display:none}
 }
 </style>
@@ -1267,20 +1293,24 @@ function plateTemp(n,rule){
 }
 
 // Delimita os intervalos usados no cálculo e na curva de cada sonda.
-function forEachPlateInterval(series,onSample,onInterval){
+function forEachPlateInterval(series,onSample,onInterval,onGap){
   const from=ST.from*1440, to=(ST.to+1)*1440;
   for(const samples of series){
     for(let i=0;i<samples.length;i+=2){
       const t=samples[i], value=samples[i+1], next=samples[i+2];
       if(t>=to)break;
       if(t>=from&&shOn(t))onSample(t,value);
-      if(!(next>t&&next-t<=CFG.gap))continue;
+      const gap=next-t>CFG.gap;
+      if(!(next>t)||(gap&&!onGap))continue;
       const end=Math.min(to,next);
       for(let start=Math.max(from,t);start<end;){
         const day=Math.floor(start/1440)*1440;
         const shift=TURNOS.find(s=>start<day+s.b);
         const stop=Math.min(end,day+shift.b);
-        if(SHSET.has(shift.id))onInterval(start,stop,value);
+        if(SHSET.has(shift.id)){
+          if(gap)onGap(start,stop);
+          else onInterval(start,stop,value,t,next,samples[i+3]);
+        }
         start=stop;
       }
     }
@@ -1362,61 +1392,195 @@ function plateEffectiveness(eff){
   return `<span class="plate-status plate-${level}" title="${status}" aria-label="${pct(eff)} · ${status}">${pct(eff)}<i aria-hidden="true">${mark}</i></span>`;
 }
 
+const PLATE_CHARTS=new Map();
+const PLATE_PLOT={width:620,height:266,left:56,right:548,top:22,bottom:232};
+const outsidePlateRange=(value,rule)=>value<rule.min||value>rule.max;
+
+function plateChartData(probe){
+  const {series,rule}=probe, samples=[],segments=[],gaps=[];
+  let low=rule.min,high=rule.max;
+  const include=value=>{low=Math.min(low,value);high=Math.max(high,value);};
+  forEachPlateInterval(series,(time,value)=>{
+    samples.push({time,value});
+    include(value);
+  },(start,stop,value,t,next,nextValue)=>{
+    const readAt=minute=>value+(nextValue-value)*(minute-t)/(next-t);
+    const a=readAt(start),b=readAt(stop);
+    segments.push({start,stop,a,b});
+    include(a);include(b);
+  },(start,stop)=>{
+    const last=gaps[gaps.length-1];
+    if(last?.stop===start)last.stop=stop;
+    else gaps.push({start,stop});
+  });
+  samples.sort((a,b)=>a.time-b.time);
+  const pad=Math.max(1,(high-low)*.08);
+  return {samples,segments,gaps,rule,low:low-pad,high:high+pad};
+}
+
 function renderPlateChart(probe,comp,plate){
-  const {rule,series}=probe, name=CPN[comp];
-  const figure=body=>`<figure><figcaption><b>${name}</b><small>Faixa ${fmtR(rule.min)} a ${fmtR(rule.max)} °C</small></figcaption>${body}</figure>`;
+  const {rule}=probe,name=CPN[comp];
+  const metric=(label,value)=>`<div><dt>${label}</dt><dd>${value}</dd></div>`;
+  const figure=body=>`<figure><figcaption><div class="plate-chart-title"><b>${name}</b><small>Faixa de ${fmtC(rule.min)} a ${fmtC(rule.max)}</small></div>
+    <dl class="plate-chart-metrics">${metric('Efetividade',plateEffectiveness(probe.eff))}${metric('Mínima',plateTemp(probe.min,rule))}${metric('Máxima',plateTemp(probe.max,rule))}</dl>
+    </figcaption>${body}</figure>`;
   if(!Number.isFinite(probe.min)&&!Number.isFinite(probe.eff)){
     return figure('<p class="plate-chart-empty">Sem leituras no período selecionado</p>');
   }
+  const model=plateChartData(probe);
+  const {width,height,left,right,top,bottom}=PLATE_PLOT, plotWidth=right-left;
   const from=ST.from*1440,to=(ST.to+1)*1440;
-  const left=42,right=532,top=12,bottom=135;
-  let low=Math.min(probe.min,rule.min,rule.max),high=Math.max(probe.max,rule.min,rule.max);
-  forEachPlateInterval(series,()=>{},(_start,_stop,value)=>{low=Math.min(low,value);high=Math.max(high,value);});
-  const pad=Math.max(1,(high-low)*.08);
-  low-=pad;high+=pad;
-  const x=t=>left+(right-left)*(t-from)/(to-from);
+  const {low,high,samples,segments,gaps}=model;
+  const x=t=>left+plotWidth*(t-from)/(to-from);
   const y=v=>bottom-(bottom-top)*(v-low)/(high-low);
-  const step=niceStep(high-low);
+  Object.assign(model,{x,y,from,to,index:-1});
+  PLATE_CHARTS.set(comp,model);
+
   const grid=[];
-  for(let v=Math.ceil(low/step)*step;v<=high;v+=step){
-    const py=y(v).toFixed(1);
-    grid.push(`<path class="plate-chart-grid" d="M${left},${py}H${right}"/><text x="36" y="${py}" text-anchor="end" dominant-baseline="middle">${fmtR(Math.round(v*10)/10)}°</text>`);
+  const minY=y(rule.min),maxY=y(rule.max);
+  const step=niceStep(high-low);
+  for(let value=Math.ceil(low/step)*step;value<=high;value+=step){
+    const py=y(value).toFixed(1);
+    grid.push(`<path class="plate-chart-grid" d="M${left},${py}H${right}"/>
+      <text x="${left-7}" y="${py}" text-anchor="end" dominant-baseline="middle">${fmtR(Math.round(value*10)/10)} °C</text>`);
   }
   const days=ST.to-ST.from+1;
   const ticks=days===1?[0,360,720,1080,1440]
     :Array.from({length:Math.min(days,5)},(_,i)=>Math.round(i*(days-1)/Math.min(days-1,4))*1440);
   for(const offset of ticks){
-    const minute=from+offset;
+    const minute=from+offset,px=x(minute).toFixed(1);
     const label=days===1?(offset===1440?'24:00':fmtT(offset)):fmtD(Math.floor(minute/1440));
     const anchor=minute===from?'start':minute===to?'end':'middle';
-    grid.push(`<text x="${x(minute)}" y="155" text-anchor="${anchor}">${label}</text>`);
+    grid.push(`<path class="plate-chart-grid" d="M${px},${top}V${bottom}"/>
+      <text x="${px}" y="${bottom+21}" text-anchor="${anchor}">${label}</text>`);
   }
-  const bandTop=y(Math.max(rule.min,rule.max)),bandHeight=Math.abs(y(rule.min)-y(rule.max));
-  const path=[],marks=[];
-  let lastEnd=null,lastY=null,lastMark='';
-  forEachPlateInterval(series,(time,value)=>{
-    const point=`${x(time).toFixed(1)},${y(value).toFixed(1)}`;
-    if(point!==lastMark)marks.push(`M${point}h.1`);
-    lastMark=point;
-  },(start,stop,value)=>{
-    const x0=x(start).toFixed(1),x1=x(stop).toFixed(1),py=y(value).toFixed(1);
-    if(start!==lastEnd||py!==lastY)path.push(`M${x0},${py}H${x1}`);
-    else if(x1!==x0)path.push(`H${x1}`);
-    lastEnd=stop;lastY=py;
-  });
-  return figure(`<svg viewBox="0 0 550 163" role="img" aria-label="${esc(name+' · '+plate+' · temperatura ao longo do período')}">
-    <rect class="plate-chart-range" x="${left}" y="${bandTop.toFixed(1)}" width="${right-left}" height="${bandHeight.toFixed(1)}"/>
-    ${grid.join('')}<path class="plate-chart-line" d="${path.join('')}${marks.join('')}"/>
-  </svg>`);
+  const limits=[{value:rule.min,py:minY},{value:rule.max,py:maxY}].map(({value,py},i)=>{
+    const labelY=Math.abs(maxY-minY)<15?py+(i===0?8:-8):py;
+    return `<path class="plate-chart-limit" d="M${left},${py.toFixed(1)}H${right}"/>
+      <text class="plate-limit-label" x="${right+7}" y="${labelY.toFixed(1)}" dominant-baseline="middle">${fmtC(value)}</text>`;
+  }).join('');
+
+  const rect=(xx,yy,w,hh)=>`<rect x="${xx.toFixed(1)}" y="${yy.toFixed(1)}" width="${w.toFixed(1)}" height="${hh.toFixed(1)}"/>`;
+  const gapArea=gaps.map(({start,stop})=>rect(x(start),top,x(stop)-x(start),bottom-top)).join('');
+  const gapLabel=gaps.reduce((largest,gap)=>!largest||gap.stop-gap.start>largest.stop-largest.start?gap:largest,null);
+  const showGapLabel=gapLabel&&x(gapLabel.stop)-x(gapLabel.start)>74;
+
+  const path=[];
+  let lastTime=null,lastValue=null;
+  for(const {start,stop,a,b} of segments){
+    if(start!==lastTime||a!==lastValue)path.push(`M${x(start).toFixed(1)},${y(a).toFixed(1)}`);
+    path.push(`L${x(stop).toFixed(1)},${y(b).toFixed(1)}`);
+    lastTime=stop;lastValue=b;
+  }
+  // Keep isolated readings visible without drawing a connection across missing signal.
+  const marks=[];
+  let segmentIndex=0;
+  for(const sample of samples){
+    while(segments[segmentIndex]?.stop<sample.time)segmentIndex++;
+    const segment=segments[segmentIndex];
+    if(!segment||sample.time<segment.start)marks.push(`M${x(sample.time).toFixed(1)},${y(sample.value).toFixed(1)}h.1`);
+  }
+  const line=path.join('')+marks.join('');
+  const extreme=(label,value,direction)=>{
+    const sample=samples.find(s=>s.value===value);
+    if(!sample)return '';
+    const px=x(sample.time),py=y(value);
+    const lx=Math.max(left+52,Math.min(right-52,px));
+    const ly=Math.max(14,Math.min(bottom+3,py+direction*14));
+    return `<g class="plate-extreme${outsidePlateRange(value,rule)?' plate-bad':''}"><circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="4"/>
+      <text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle">${label} ${fmtC(value)}</text></g>`;
+  };
+  const extremes=probe.min===probe.max?extreme('Mín./máx.',probe.min,-1):
+    extreme('Mín.',probe.min,1)+extreme('Máx.',probe.max,-1);
+  const clip='plate-out-'+comp;
+  return figure(`<div class="plate-plot" data-comp="${comp}"><svg viewBox="0 0 ${width} ${height}" role="img" tabindex="0"
+    aria-label="${esc(name+' · '+plate+' · curva de temperatura. Use as setas para consultar as leituras.')}" aria-describedby="plate-reading-${comp}">
+    <defs><clipPath id="${clip}">${rect(left-3,top-3,plotWidth+6,maxY-top+3)}${rect(left-3,minY,plotWidth+6,bottom-minY+3)}</clipPath></defs>
+    <g class="plate-chart-range">${rect(left,maxY,plotWidth,minY-maxY)}</g>${grid.join('')}
+    <g class="plate-chart-gap">${gapArea}</g>${limits}
+    <path class="plate-chart-line" d="${line}"/><path class="plate-chart-line plate-chart-out" clip-path="url(#${clip})" d="${line}"/>
+    ${extremes}${showGapLabel?`<text class="plate-gap-label" x="${x((gapLabel.start+gapLabel.stop)/2).toFixed(1)}" y="${top+16}" text-anchor="middle">Sem sinal</text>`:''}
+    <g class="plate-chart-cross" visibility="hidden" aria-hidden="true"><line x1="0" x2="0" y1="${top}" y2="${bottom}"/><circle cx="0" cy="0" r="4.5"/></g>
+    </svg><div class="plate-chart-tip" id="plate-reading-${comp}" role="status" hidden></div></div>
+    <div class="plate-chart-legend"><span><i></i>Dentro da faixa</span><span class="out"><i></i>Fora da faixa</span><span class="gap"><i></i>Sem sinal</span></div>`);
 }
+
+function nearestPlateReading(samples,time){
+  let left=0,right=samples.length-1;
+  while(left<right){
+    const mid=Math.floor((left+right)/2);
+    if(samples[mid].time<time)left=mid+1;
+    else right=mid;
+  }
+  return left>0&&time-samples[left-1].time<samples[left].time-time?left-1:left;
+}
+
+function showPlateReading(plot,model,sample,gap){
+  const tip=$('.plate-chart-tip',plot),cross=$('.plate-chart-cross',plot);
+  cross.setAttribute('visibility',sample?'visible':'hidden');
+  tip.hidden=!sample&&!gap;
+  if(tip.hidden)return;
+  let x,y,content;
+  if(sample){
+    const {time,value}=sample,{rule}=model;
+    const difference=value<rule.min?rule.min-value:value-rule.max;
+    const status=difference>0?fmtC(difference)+(value<rule.min?' abaixo do limite':' acima do limite'):'Dentro da faixa';
+    x=model.x(time);y=model.y(value);
+    const line=$('line',cross),point=$('circle',cross);
+    line.setAttribute('x1',x);line.setAttribute('x2',x);
+    point.setAttribute('cx',x);point.setAttribute('cy',y);
+    cross.classList.toggle('plate-bad',difference>0);
+    content=`<b>${fmtDT(time)}</b><span>Temperatura: ${fmtC(value)}</span><span class="plate-${difference>0?'bad':'ok'}">${status}</span>`;
+  }else{
+    x=model.x((gap.start+gap.stop)/2);y=PLATE_PLOT.top+48;
+    content=`<b>Sem sinal</b><span>${fmtDT(gap.start)} a ${fmtDT(gap.stop)}</span>`;
+  }
+  tip.style.setProperty('--tip-x',x/PLATE_PLOT.width*100+'%');
+  tip.style.setProperty('--tip-y',y/PLATE_PLOT.height*100+'%');
+  if(tip.innerHTML!==content)tip.innerHTML=content;
+}
+
+function pointPlateChart(event){
+  const svg=event.target.closest('.plate-plot svg');
+  if(!svg)return;
+  const plot=svg.parentElement,model=PLATE_CHARTS.get(plot.dataset.comp);
+  const rect=svg.getBoundingClientRect(),{width,left,right}=PLATE_PLOT;
+  const px=(event.clientX-rect.left)*width/rect.width;
+  if(px<left||px>right){showPlateReading(plot,model);return;}
+  const time=model.from+(model.to-model.from)*(px-left)/(right-left);
+  const gap=model.gaps.find(g=>time>g.start&&time<g.stop&&
+    Math.min(model.x(time)-model.x(g.start),model.x(g.stop)-model.x(time))>5);
+  const index=gap||!model.samples.length?-1:nearestPlateReading(model.samples,time);
+  const sample=model.samples[index];
+  model.index=index;
+  showPlateReading(plot,model,sample&&Math.abs(time-sample.time)<=CFG.gap?sample:null,gap);
+}
+$('#plateCharts').addEventListener('pointermove',pointPlateChart);
+$('#plateCharts').addEventListener('pointerdown',pointPlateChart);
+$('#plateCharts').addEventListener('pointerout',event=>{
+  const plot=event.target.closest('.plate-plot');
+  if(plot&&!plot.contains(event.relatedTarget))showPlateReading(plot,PLATE_CHARTS.get(plot.dataset.comp));
+});
+$('#plateCharts').addEventListener('keydown',event=>{
+  const plot=event.target.closest('.plate-plot');
+  if(!plot)return;
+  const model=PLATE_CHARTS.get(plot.dataset.comp);
+  if(event.key==='Escape'){showPlateReading(plot,model);return;}
+  const last=model.samples.length-1;
+  if(last<0)return;
+  const indexes={ArrowLeft:Math.max(0,model.index-1),ArrowRight:Math.min(last,model.index+1),Home:0,End:last};
+  if(!Object.hasOwn(indexes,event.key))return;
+  event.preventDefault();
+  model.index=indexes[event.key];
+  showPlateReading(plot,model,model.samples[model.index]);
+});
 
 function updatePlateSelection(rows){
   const row=rows.find(r=>r.id===PLATE_VIEW.selected);
-  const item=(label,value)=>`<span><small>${label}</small><strong>${value}</strong></span>`;
   $('#plateDetail').innerHTML=row
-    ?item('Placa',esc(row.plate))+row.probes.map((p,i)=>item(CPN[PLATE_COMP[i]],plateEffectiveness(p.eff))+
-        item('Mín. T'+(i+1),plateTemp(p.min,p.rule))+item('Máx. T'+(i+1),plateTemp(p.max,p.rule))).join('')
-    :rows.length?'Clique em “Ver” ao lado da placa para abrir os gráficos.':'';
+    ? `<span><small>Placa em foco</small><strong>${esc(row.plate)}</strong></span>`
+    : rows.length?'Clique em “Ver” ao lado da placa para abrir os gráficos.':'';
+  PLATE_CHARTS.clear();
   $('#plateDetail').hidden=!rows.length;
   $('#plateCharts').hidden=!row;
   $('#plateCharts').innerHTML=row?row.probes.map((p,i)=>renderPlateChart(p,PLATE_COMP[i],row.plate)).join(''):'';
