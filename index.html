@@ -467,8 +467,7 @@ html[data-theme=dark] #plateReport{
 .plate-chart-range{fill:var(--monitor-range)}
 .plate-chart-limit{stroke:var(--monitor-ok);stroke-width:1.3;stroke-dasharray:4 3}
 .plate-plot svg .plate-limit-label{fill:var(--monitor-ok);font-weight:700}
-.plate-chart-line{fill:none;stroke:var(--monitor-curve);stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
-.plate-chart-out{stroke:var(--monitor-bad);stroke-width:1.8}
+.plate-chart-line{fill:none;stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .plate-extreme circle,.plate-chart-cross circle{fill:var(--card);stroke:var(--monitor-curve);stroke-width:2}
 .plate-extreme.plate-bad circle,.plate-chart-cross.plate-bad circle{stroke:var(--monitor-bad)}
 .plate-plot svg .plate-extreme text{fill:var(--ink);font-weight:700;paint-order:stroke;stroke:var(--card);stroke-width:4;stroke-linejoin:round}
@@ -484,7 +483,7 @@ html[data-theme=dark] #plateReport{
 .plate-chart-tip span{display:block}
 .plate-chart-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:5px 15px;padding:0 10px 9px;font-size:11px;color:var(--ink2)}
 .plate-chart-legend i{display:inline-block;vertical-align:middle;width:18px;height:4px;margin-right:4px;background:var(--monitor-curve);border-radius:4px}
-.plate-chart-legend .out i{background:linear-gradient(var(--monitor-curve) 0 25%,var(--monitor-bad) 25% 75%,var(--monitor-curve) 75%)}
+.plate-chart-legend .out i{background:var(--monitor-bad)}
 .plate-chart-empty{min-height:150px}
 #plateTable td.plate-select{width:1%;white-space:nowrap}
 #plateTable button[data-view-plate]{min-width:62px;padding:3px 8px;border:1px solid var(--monitor-line);background:var(--card);border-radius:5px}
@@ -1487,13 +1486,20 @@ function renderPlateChart(probe,comp,plate){
   };
   const extremes=probe.min===probe.max?extreme('Mín./máx.',probe.min,-1):
     extreme('Mín.',probe.min,1)+extreme('Máx.',probe.max,-1);
-  const clip='plate-out-'+comp;
+  const gradient='plate-curve-'+comp;
+  const offset=py=>Math.max(0,Math.min(1,(py-top)/(bottom-top)));
+  const upper=offset(maxY),lower=offset(minY);
   return figure(`<div class="plate-plot" data-comp="${comp}"><svg viewBox="0 0 ${width} ${height}" role="img" tabindex="0"
     aria-label="${esc(name+' · '+plate+' · curva de temperatura. Use as setas para consultar as leituras.')}" aria-describedby="plate-reading-${comp}">
-    <defs><clipPath id="${clip}">${rect(left-3,top-3,plotWidth+6,maxY-top+3)}${rect(left-3,minY,plotWidth+6,bottom-minY+3)}</clipPath></defs>
+    <defs><linearGradient id="${gradient}" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${top}" y2="${bottom}">
+      <stop offset="0" stop-color="var(--monitor-bad)"/>
+      <stop offset="${upper}" stop-color="var(--monitor-bad)"/><stop offset="${upper}" stop-color="var(--monitor-curve)"/>
+      <stop offset="${lower}" stop-color="var(--monitor-curve)"/><stop offset="${lower}" stop-color="var(--monitor-bad)"/>
+      <stop offset="1" stop-color="var(--monitor-bad)"/>
+    </linearGradient></defs>
     <g class="plate-chart-range">${rect(left,maxY,plotWidth,minY-maxY)}</g>${grid.join('')}
     <path class="plate-chart-axis" d="M${left},${top}V${bottom}H${right}"/>${limits}
-    <path class="plate-chart-line" d="${line}"/><path class="plate-chart-line plate-chart-out" clip-path="url(#${clip})" d="${line}"/>
+    <path class="plate-chart-line" stroke="url(#${gradient})" d="${line}"/>
     ${extremes}
     <g class="plate-chart-cross" visibility="hidden" aria-hidden="true"><line x1="0" x2="0" y1="${top}" y2="${bottom}"/><circle cx="0" cy="0" r="4.5"/></g>
     </svg><div class="plate-chart-tip" id="plate-reading-${comp}" role="status" hidden></div></div>
