@@ -740,8 +740,9 @@ s.onchange=function(){ap(s.value);try{localStorage.setItem(K,s.value)}catch(e){}
   <div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><h2>Importar dados do sistema Ravex</h2><button class="btn" id="impClose">Fechar</button></div>
   <div style="overflow:auto;display:flex;flex-direction:column;gap:12px;padding-right:2px">
   <label class="drop" id="impDrop"><input type="file" id="impFile" multiple accept=".xlsx,.xls,.csv" hidden>
-    <b>Arraste os arquivos aqui ou clique para escolher</b><span>Histórico de Veículo (obrigatório) · Veículo e Unidade Organizacional (opcionais) · .xlsx ou .csv · dá para enviar vários históricos de uma vez</span></label>
+    <b>Arraste os arquivos aqui ou clique para escolher</b><span>Histórico de Veículo e Telemetria CAN · .xlsx, .xls ou .csv · aceita vários arquivos juntos</span></label>
   <div id="impFiles"></div>
+  <p id="impCan" class="hint" hidden>A temperatura CAN é importada como Congelado (T2).</p>
   <div class="cfgrow">
     <div class="fld"><label>Cliente / nome do relatório</label><input type="text" id="impCli" placeholder="Nome do cliente" style="min-width:190px"></div>
     <div class="fld"><label>Carga (opcional)</label><input type="text" id="impCarga" placeholder="Ex.: Congelados" style="min-width:150px"></div>
@@ -753,8 +754,8 @@ s.onchange=function(){ap(s.value);try{localStorage.setItem(K,s.value)}catch(e){}
   <div class="cfgrow" style="align-items:flex-end">
     <div class="fld"><label>Compartimentos separados (congelado / resfriado)</label><select id="impComp"><option value="0">Não — faixa única</option><option value="1">Sim — duas faixas</option></select></div>
     <div class="fld cpx"><label>Identificar o compartimento das sondas</label><select id="impCmode"><option value="auto">Automático (a sonda mais fria do veículo, no dia, é o Congelado)</option><option value="manual">Manual (igual para todos os veículos)</option></select></div>
-    <div class="fld cpx"><label>Congelado mín °C</label><input type="number" step="0.5" id="impCgMin" value="-25"></div>
-    <div class="fld cpx"><label>Congelado máx °C</label><input type="number" step="0.5" id="impCgMax" value="-15"></div>
+    <div class="fld cpx can-range"><label>Congelado mín °C</label><input type="number" step="0.5" id="impCgMin" value="-25"></div>
+    <div class="fld cpx can-range"><label>Congelado máx °C</label><input type="number" step="0.5" id="impCgMax" value="-15"></div>
     <div class="fld cpx"><label>Resfriado mín °C</label><input type="number" step="0.5" id="impRfMin" value="0"></div>
     <div class="fld cpx"><label>Resfriado máx °C</label><input type="number" step="0.5" id="impRfMax" value="5"></div>
   </div>
@@ -933,7 +934,15 @@ function detectPC(t){const n=t.s.length;if(n<2)return null;
   const out=new Array(n).fill('');idx.forEach(([v,p],i)=>{out[p]=i<bi?'cong':'resf';});return out;}
 function buildPC(D){
   const cc=D.cc;cc.comps={cong:false,resf:false};cc.has=false;cc.det={};
-  if(cc.mode!=='auto'){const pc=cc.pcomp;for(const t of D.viagens)t.pc=pc;cc.comps.cong=pc.includes('cong');cc.comps.resf=pc.includes('resf');cc.has=pc.some(x=>x);return;}
+  if(cc.mode!=='auto'){
+    for(const t of D.viagens){
+      t.pc=t.canFrozenSlot==null?cc.pcomp:t.s.map((s,p)=>s.length?(p===t.canFrozenSlot?'cong':cc.pcomp[p]):'');
+      for(const c of t.pc)if(c)cc.comps[c]=true;
+    }
+    for(const c of cc.pcomp)if(c)cc.comps[c]=true;
+    cc.has=cc.comps.cong||cc.comps.resf;
+    return;
+  }
   const byV={};for(const t of D.viagens)(byV[t.veic]=byV[t.veic]||[]).push(t);
   for(const pl in byV){const L=byV[pl].sort((a,b)=>a.tm[0]-b.tm[0]);
     const det=L.map(detectPC);let last=null;
@@ -943,7 +952,8 @@ function buildPC(D){
     cc.det[pl]=L.map((t,i)=>({day:t.day,pc:det[i]||[]}));
     L.forEach((t,i)=>{const d=det[i]||[],out=[];
       for(let p=0;p<t.s.length;p++){const o=ov&&ov[p]&&ov[p]!=='auto'?ov[p]:null;out.push(o!==null?(o==='none'?'':o):(d[p]||''));}
-      t.pc=out;});}
+      if(t.canFrozenSlot!=null)out[t.canFrozenSlot]='cong';
+      t.pc=out.map((c,p)=>t.s[p].length?c:'');});}
   for(const t of D.viagens)for(const c of t.pc)if(c)cc.comps[c]=true;
   cc.has=cc.comps.cong||cc.comps.resf;
 }
@@ -1008,7 +1018,7 @@ function vehPassesFilters(v){
 }
 const filteredVehicles=()=>DATA.veiculos.filter(vehPassesFilters);
 const activeVehicles=()=>filteredVehicles().filter(v=>!ST.off.has(v.id));
-const probesOf=t=>{const o=[];for(let p=0;p<t.s.length;p++)if(ST.pr.has(String(p))&&(!PCt(t,p)||ST.cp.has(PCt(t,p))))o.push(p);return o;};
+const probesOf=t=>{const o=[];for(let p=0;p<t.s.length;p++)if(t.s[p].length&&ST.pr.has(String(p))&&(!PCt(t,p)||ST.cp.has(PCt(t,p))))o.push(p);return o;};
 
 /* ============ 4) MOTOR DE CÁLCULO ============ */
 function analyzeTrip(t,forceIdx,lite){
@@ -1041,6 +1051,7 @@ function analyzeTrip(t,forceIdx,lite){
     if(dt>CFG.gap){gap=dt-STEP; dt=STEP;}
     let ea=-Infinity,pa=0,xa=0,eb=-Infinity,pb=0,xb=0;
     for(const p of idx){const x=t.s[p][i],r=rp(p);if(x-r.max>ea){ea=x-r.max;pa=p;xa=x;}if(r.min-x>eb){eb=r.min-x;pb=p;xb=x;}}
+    if(ea===-Infinity&&eb===-Infinity){close();continue;}
     const above=Math.max(0,ea), below=Math.max(0,eb);
     out.tOp+=dt;
     if(above>0||below>0){
@@ -1815,14 +1826,14 @@ function chartRules(a,NP,cc){
   const one=[{lab:'',min:a.rule.min,max:a.rule.max,fill:'var(--band)'}];
   if(!hasComp())return one;
   const out=[],seen=new Set();
-  for(let p=0;p<NP;p++){if(!ST.pr.has(String(p)))continue;const c=PCt(a.t,p);if(c&&!ST.cp.has(c))continue;if(cc!==undefined&&c!==(cc||''))continue;if(seen.has(c))continue;seen.add(c);
+  for(const p of probesOf(a.t)){const c=PCt(a.t,p);if(cc!==undefined&&c!==(cc||''))continue;if(seen.has(c))continue;seen.add(c);
     const r=c?DATA.cc[c]:a.rule;out.push({lab:c?CPN[c].slice(0,4)+'. ':'',min:r.min,max:r.max,fill:c==='cong'?'rgba(59,130,246,.14)':'var(--band)'});}
   return out.length?out:one;
 }
 function chartComps(trips){
   if(!hasComp())return [undefined];
   const set=new Set();
-  for(const a of trips){const t=a.t;for(let p=0;p<t.s.length;p++){if(!ST.pr.has(String(p)))continue;const c=PCt(t,p);if(c&&!ST.cp.has(c))continue;set.add(c);}}
+  for(const a of trips)for(const p of probesOf(a.t))set.add(PCt(a.t,p));
   const out=['resf','cong'].filter(c=>set.has(c));if(set.has(''))out.push('');
   return out.length?out:[undefined];
 }
@@ -1865,8 +1876,13 @@ function drawVehChart(box,R,trips,cc,H){
     for(const q of CR){g+=`<line x1="${x0}" x2="${x1}" y1="${Y(q.max)}" y2="${Y(q.max)}" stroke="var(--crit)" stroke-width="2" stroke-dasharray="6 4"/>`;
       g+=`<line x1="${x0}" x2="${x1}" y1="${Y(q.min)}" y2="${Y(q.min)}" stroke="var(--s1)" stroke-width="2" stroke-dasharray="6 4"/>`;}
     for(let p=NP-1;p>=0;p--){
-      if(hasComp()&&(PCt(t,p)||'')!==(cc||''))continue;
-      let d='';for(let i=0;i<t.tm.length;i++){const brk=i>0&&t.tm[i]-t.tm[i-1]>CFG.gap;d+=(i===0||brk?'M':'L')+X(s,t.tm[i]).toFixed(1)+' '+Y(t.s[p][i]).toFixed(1)+' ';}
+      if(!t.s[p].length||(hasComp()&&(PCt(t,p)||'')!==(cc||'')))continue;
+      let d='',start=true;
+      for(let i=0;i<t.tm.length;i++){
+        const value=t.s[p][i];if(!Number.isFinite(value)){start=true;continue;}
+        d+=(start||t.tm[i]-t.tm[i-1]>CFG.gap?'M':'L')+X(s,t.tm[i]).toFixed(1)+' '+Y(value).toFixed(1)+' ';
+        start=false;
+      }
       g+=`<path d="${d}" fill="none" stroke="var(--p${p+1})" stroke-width="2.2" opacity="${ST.pr.has(String(p))?1:.22}" stroke-linejoin="round"/>`;}
     if(multiDay){if(si%every===0)g+=`<text x="${(x0+x1)/2}" y="${H-12}" text-anchor="middle">${fmtD(t.day)}</text>`;}
   });
@@ -1881,13 +1897,13 @@ function drawVehChart(box,R,trips,cc,H){
     for(const s of segs){const t=s.a.t;for(let i=0;i<t.tm.length;i++){const d=Math.abs(X(s,t.tm[i])-px);if(d<bd){bd=d;best={s,i};}}}
     if(!best)return;const {s,i}=best,t=s.a.t,r=s.a.rule,x=X(s,t.tm[i]);
     xh.setAttribute('x1',x);xh.setAttribute('x2',x);xh.setAttribute('opacity',.5);
-    let rows='';for(let p=0;p<NP;p++){if(hasComp()&&(PCt(t,p)||'')!==(cc||''))continue;const val=t.s[p][i],rr=ruleP(t,p,r),ok=val>=rr.min&&val<=rr.max,on=ST.pr.has(String(p))&&(!PCt(t,p)||ST.cp.has(PCt(t,p)));
+    let rows='';for(let p=0;p<NP;p++){if(hasComp()&&(PCt(t,p)||'')!==(cc||''))continue;const val=t.s[p][i];if(!Number.isFinite(val))continue;const rr=ruleP(t,p,r),ok=val>=rr.min&&val<=rr.max,on=ST.pr.has(String(p))&&(!PCt(t,p)||ST.cp.has(PCt(t,p)));
       rows+=`<br><span style="color:var(--p${p+1})">●</span> Sonda ${pn(p)}${PCt(t,p)?' ('+CPN[PCt(t,p)]+')':''}: <b>${fmtC(val)}</b> ${on?(ok?'✓':'⚠'):'<i>(não avaliada)</i>'}`;}
     showTip(`<b>${fmtDT(t.tm[i])}</b>${rows}<br>Faixa: ${chartRules(s.a,NP,cc).map(q=>q.lab+q.min+' a '+q.max).join(' · ')} °C<br>Baú: ${t.door[i]?'aberto':'fechado'} · ${t.spd[i]} km/h<br>${esc(DATA.locs[t.loc[i]])}`,ev.clientX,ev.clientY);};
   svg.querySelector('#hit').onmouseleave=()=>{xh.setAttribute('opacity',0);hideTip();};
   const g1=R.vehs.get(ST.focus);
   $('#chartHint').innerHTML=`<b>${v.placa}</b> · ${esc(v.equip)} · ${esc(UNI[v.unidade].nome)} · ${NP} sonda(s) · ${segs.length} viagem(ns) · efetividade ${pct(effOf(g1))} · ${statusTag(effOf(g1))}`;
-  let lg='';for(let p=0;p<NP;p++)lg+=`<span style="${ST.pr.has(String(p))?'':'opacity:.5'}"><i style="height:0;border-top:3px solid var(--p${p+1});background:none"></i>Sonda ${pn(p)}${probeCompLab(trips,p)}</span>`;
+  let lg='';for(let p=0;p<NP;p++)if(trips.some(a=>a.t.s[p].length))lg+=`<span style="${ST.pr.has(String(p))?'':'opacity:.5'}"><i style="height:0;border-top:3px solid var(--p${p+1});background:none"></i>Sonda ${pn(p)}${probeCompLab(trips,p)}</span>`;
   $('#chartLegend').innerHTML=lg+(shAll()?'':'<span><i style="background:var(--ink3);opacity:.35;height:10px"></i>Fora do turno (não avaliado)</span>')+`<span><i style="background:var(--ok);opacity:.35;height:10px"></i>Faixa permitida</span><span><i style="height:0;border-top:2px dashed var(--crit);background:none"></i>Limite máximo</span><span><i style="height:0;border-top:2px dashed var(--s1);background:none"></i>Limite mínimo</span><span><i style="background:var(--crit);opacity:.3;height:10px"></i>Ocorrência</span><span><i style="background:var(--warn);height:7px"></i>Baú aberto / descarga</span><span><i style="background:var(--ink3);opacity:.4;height:10px"></i>Sem sinal</span>`;
 }
 
@@ -1898,15 +1914,14 @@ function renderChartAll(R,trips){
 }
 function drawAllChart(box,R,trips,cc,H){
   const W=Math.max(360,box.clientWidth||900),m={l:48,r:20,t:12,b:34},pw=W-m.l-m.r,ph=H-m.t-m.b;
-  const sel=[...ST.pr].map(Number);
   /* uma linha por viagem — ou por viagem e compartimento, quando há dois compartimentos */
   const items=[];
-  for(const a of trips){const t=a.t,NP=VEI[t.veic].sondas,sp=sel.filter(p=>p<NP&&(!PCt(t,p)||ST.cp.has(PCt(t,p))));
+  for(const a of trips){const t=a.t,sp=probesOf(t);
     if(hasComp()){const gr={};for(const p of sp)(gr[PCt(t,p)]=gr[PCt(t,p)]||[]).push(p);
       for(const k in gr)items.push({a,t,ps:gr[k],c:k,rule:k?{min:DATA.cc[k].min,max:DATA.cc[k].max,tol:a.rule.tol}:a.rule});}
-    else items.push({a,t,ps:sp.length?sp:[0],c:'',rule:a.rule});}
+    else if(sp.length)items.push({a,t,ps:sp,c:'',rule:a.rule});}
   if(hasComp()&&cc!==undefined)for(let i=items.length-1;i>=0;i--)if(items[i].c!==(cc||''))items.splice(i,1);
-  const val=(it,i)=>{let s=0;for(const p of it.ps)s+=it.t.s[p][i];return s/it.ps.length;};
+  const val=(it,i)=>{let s=0,n=0;for(const p of it.ps){const x=it.t.s[p][i];if(Number.isFinite(x)){s+=x;n++;}}return s/n;};
   let t0=Infinity,t1=-Infinity,lo=Infinity,hi=-Infinity;
   for(const it of items){const t=it.t;t0=Math.min(t0,t.tm[0]);t1=Math.max(t1,t.tm[t.tm.length-1]+STEP);
     for(let i=0;i<t.tm.length;i++){const x=val(it,i);if(x<lo)lo=x;if(x>hi)hi=x;}lo=Math.min(lo,it.rule.min);hi=Math.max(hi,it.rule.max);}
@@ -1924,15 +1939,17 @@ function drawAllChart(box,R,trips,cc,H){
   else{const every=Math.max(1,Math.ceil(34/(pw/nd)));for(let d=d0;d<=d1;d++){const xa=X(Math.max(t0,d*1440)),xb=X(Math.min(t1,(d+1)*1440));
     g+=`<line x1="${xa}" x2="${xa}" y1="${m.t}" y2="${m.t+ph}" stroke="var(--line)"/>`;if((d-d0)%every===0)g+=`<text x="${(xa+xb)/2}" y="${H-12}" text-anchor="middle">${fmtD(d)}</text>`;}}
   let gray='',red='';
-  for(const it of items){const t=it.t,r=it.rule;let dg='',dr='',prevOut=false;
-    for(let i=0;i<t.tm.length;i++){const brk=i>0&&t.tm[i]-t.tm[i-1]>CFG.gap,on=shOn(t.tm[i]);if(!on){prevOut=false;continue;}
-      const v=val(it,i),out=v<r.min||v>r.max,px=X(t.tm[i]).toFixed(1)+' '+Y(v).toFixed(1)+' ';
-      dg+=(i===0||brk||!shOn(t.tm[i-1])?'M':'L')+px;
+  for(const it of items){const t=it.t,r=it.rule;let dg='',dr='',prevOut=false,start=true;
+    for(let i=0;i<t.tm.length;i++){
+      const v=val(it,i);
+      if(!shOn(t.tm[i])||!Number.isFinite(v)){prevOut=false;start=true;continue;}
+      const brk=start||t.tm[i]-t.tm[i-1]>CFG.gap,out=v<r.min||v>r.max,px=X(t.tm[i]).toFixed(1)+' '+Y(v).toFixed(1)+' ';
+      dg+=(brk?'M':'L')+px;start=false;
       if(out){dr+=(prevOut&&!brk?'L':'M')+px;prevOut=true;}else prevOut=false;}
     gray+=`<path d="${dg}" fill="none" stroke="${it.c==='cong'?'var(--p2)':'var(--p1)'}" stroke-width="1.1" opacity=".6" stroke-linejoin="round"/>`;
     red+=`<path d="${dr}" fill="none" stroke="var(--crit)" stroke-width="1.8" stroke-linejoin="round"/>`;}
   let lab='';
-  if(items.length<=12){const used=[];for(const it of items){const t=it.t;let k=0;while(k<t.tm.length&&!shOn(t.tm[k]))k++;if(k>=t.tm.length)continue;
+  if(items.length<=12){const used=[];for(const it of items){const t=it.t;let k=0;while(k<t.tm.length&&(!shOn(t.tm[k])||!Number.isFinite(val(it,k))))k++;if(k>=t.tm.length)continue;
     const x=X(t.tm[k]);let y=Y(val(it,k))-7;for(const u of used)if(Math.abs(u.x-x)<46&&Math.abs(u.y-y)<12)y=u.y-12;used.push({x,y});
     lab+=`<text x="${x}" y="${y}" style="font-size:10.5px;font-weight:700;fill:var(--ink)" paint-order="stroke" stroke="var(--card,#fff)" stroke-width="3">${VEI[t.veic].placa}${it.c?' · '+CPN[it.c].slice(0,4)+'.':''}</text>`;}}
   g+=gray+red+lab+`<line id="xh" x1="0" x2="0" y1="${m.t}" y2="${m.t+ph}" stroke="var(--ink)" opacity="0"/><rect id="hit" x="${m.l}" y="${m.t}" width="${pw}" height="${ph}" fill="transparent"/>`;
@@ -2235,10 +2252,23 @@ function vehicleName(value,plate){
   const name=String(value??'').trim(),normalized=plateOf(name);
   return normalized&&normalized!==plate?name:'';
 }
+const CAN_TEMP='temperatura da cabine (can refrigeracao) (°c)';
+const CAN_PLATE='placa / nome';
+const CAN_FROZEN_PROBE=1;
+function canVehicle(value){
+  const [identifier,...suffix]=String(value??'').split('/');
+  const plate=plateOf(identifier);
+  return /^[A-Z]{3}\d[A-Z0-9]\d{2}$/.test(plate)?{plate,name:vehicleName(suffix.join('/'),plate)}:null;
+}
+function validTemp(value){
+  const temp=numOf(value);
+  return temp>-60&&temp<100?temp:NaN;
+}
 function classify(name,rows){
   for(let r=0;r<Math.min(rows.length,30);r++){
     const idx={};rows[r].forEach((c,i)=>{const k=nrm(c);if(k&&!(k in idx))idx[k]=i;});
     if('emissao/envio' in idx&&'temperatura 1' in idx)return{name,kind:'hist',hi:r,idx,rows};
+    if('emissao' in idx&&CAN_PLATE in idx&&CAN_TEMP in idx)return{name,kind:'can',hi:r,idx,rows};
     if('placa' in idx&&'unidade organizacional (proprietaria)' in idx)return{name,kind:'veic',hi:r,idx,rows};
     if('placa' in idx&&('frota' in idx||'cliente' in idx||'unidade' in idx||vehicleNameColumn(idx)!=null))return{name,kind:'cad',hi:r,idx,rows};
     if('apelido' in idx&&'area' in idx)return{name,kind:'uni',hi:r,idx,rows};
@@ -2259,9 +2289,9 @@ const RISK_RE=/conduta irregular|viola[cç]|p[aâ]nico|desvio|excesso de velocid
 const modeOf=a=>{const m=new Map();a.forEach(x=>m.set(x,(m.get(x)||0)+1));let b=null,n=0;m.forEach((c,k)=>{if(c>n){n=c;b=k}});return b;};
 
 function build(files,opt){
-  const hist=files.filter(f=>f.kind==='hist'),vf=files.filter(f=>f.kind==='veic'||f.kind==='cad'),uf=files.filter(f=>f.kind==='uni');
+  const hist=files.filter(f=>f.kind==='hist'||f.kind==='can'),vf=files.filter(f=>f.kind==='veic'||f.kind==='cad'),uf=files.filter(f=>f.kind==='uni');
   const W=[],S={arquivos:hist.length};
-  if(!hist.length)return{erro:'Falta o arquivo “Histórico de Veículo” (precisa ter as colunas Emissão/envio e Temperatura 1).'};
+  if(!hist.length)return{erro:'Adicione um Histórico de Veículo ou uma planilha de Telemetria CAN.'};
   /* unidade organizacional → UF, e placa → unidade */
   const uInfo={};
   for(const f of uf){const I=f.idx;for(let r=f.hi+1;r<f.rows.length;r++){const R=f.rows[r];
@@ -2274,17 +2304,28 @@ function build(files,opt){
       if(g(cU))vUni[p]=g(cU);if(g(cF))vFro[p]=g(cF);if(g(cC))vCli[p]=g(cC);
       const name=vehicleName(R[cName],p);if(name)vNames.set(p,name);}}
   /* linhas do histórico por placa */
-  const byPlate=new Map(),pCount=[0,0,0,0,0],seen=new Map();let dup=0,nRows=0,nMdvr=0,minTs=Infinity,maxTs=-Infinity;
-  hist.forEach((f,fi)=>{const I=f.idx,c=k=>I[k],cT=c('emissao/envio'),cInf=c('informacao'),cIg=c('ignicao'),cEnt=c('entradas'),cDrv=c('motorista'),
-    cEq=c('tipo do equipamento'),cSp=c('velocidade (gps)'),cLoc=c('ponto referencia'),cPl=c('placa')??c('veiculo');
+  const byPlate=new Map(),pCount=[0,0,0,0,0],seen=new Map(),canPlates=new Set();let dup=0,nRows=0,nMdvr=0,minTs=Infinity,maxTs=-Infinity;
+  hist.forEach((f,fi)=>{const isCan=f.kind==='can',I=f.idx,c=k=>I[k],cT=c(isCan?'emissao':'emissao/envio'),cInf=c(isCan?'evento':'informacao'),cIg=c('ignicao'),cEnt=c('entradas'),cDrv=c('motorista'),
+    cEq=c('tipo do equipamento'),cSp=c(isCan?'velocidade por gps (km/h)':'velocidade (gps)'),cLoc=c(isCan?'ponto de referencia':'ponto referencia'),cPl=isCan?c(CAN_PLATE):c('placa')??c('veiculo');
     const cTp=[1,2,3,4,5].map(n=>c('temperatura '+n)),cName=vehicleNameColumn(I);
+    let canReadings=0;
     for(let r=f.hi+1;r<f.rows.length;r++){const R=f.rows[r],ts=tsOf(R[cT]);if(ts===null)continue;
-      const eq=String(cEq!=null?R[cEq]:'').trim();if(/mdvr/i.test(eq)){nMdvr++;continue;}
+      const v=isCan?canVehicle(R[cPl]):null;
+      if(isCan&&!v)continue;
+      const pl=v?.plate||(plateOf(R[cPl])||('ARQ'+(fi+1)));
+      const canValue=isCan?validTemp(R[c(CAN_TEMP)]):NaN;
+      const measuredCan=Number.isFinite(canValue);
+      if(isCan&&!measuredCan)continue;
+      if(measuredCan){canReadings++;canPlates.add(pl);}
+      const eq=isCan?'Telemetria CAN':String(cEq!=null?R[cEq]:'').trim();if(/mdvr/i.test(eq)){nMdvr++;continue;}
       nRows++;if(ts<minTs)minTs=ts;if(ts>maxTs)maxTs=ts;
-      const pl=plateOf(cPl!=null?R[cPl]:'')||('ARQ'+(fi+1));
-      const name=vehicleName(R[cName],pl),known=historicNames.get(pl);
+      const name=v?.name||vehicleName(R[cName],pl),known=historicNames.get(pl);
       if(name&&(!known||ts>=known.ts))historicNames.set(pl,{name,ts});
-      const temps=cTp.map((ci,p)=>{if(ci==null)return NaN;const x=numOf(R[ci]);if(!isFinite(x)||x<=-60||x>=100)return NaN;pCount[p]++;return x;});
+      const temps=cTp.map((ci,p)=>{
+        const x=isCan?(p===CAN_FROZEN_PROBE?canValue:NaN):validTemp(R[ci]);
+        if(Number.isFinite(x))pCount[p]++;
+        return x;
+      });
       const infO=String(cInf!=null?R[cInf]:'').replace(/^macro:\s*/i,'').trim(),inf=nrm(infO),ent=nrm(cEnt!=null?R[cEnt]:'');
       let desc=null,ign=null;const sens=[],ON=/^(aberto|aberta|acionado)$/;
       const m1=inf.match(/sensor (?:criptografado )?(?:de )?bau (\w+) (acionado|desacionado|aberto|fechado)/);if(m1)sens.push([m1[1],ON.test(m1[2])?1:0]);
@@ -2299,16 +2340,18 @@ function build(files,opt){
       const duplicate=seen.get(key);
       if(duplicate){
         if(!Number.isFinite(duplicate.gpsSpeed)&&Number.isFinite(gpsSpeed))duplicate.gpsSpeed=gpsSpeed;
+        if(measuredCan)duplicate.can=true;
         dup++;nRows--;continue;
       }
       let a=byPlate.get(pl);if(!a){a=[];byPlate.set(pl,a);}
-      const record={ts,temps,sens,desc,ign,risk,spd:isFinite(sp)?sp:0,gpsSpeed,loc,drv:cDrv!=null?String(R[cDrv]||'').trim():'',eq};
+      const record={ts,temps,sens,desc,ign,risk,spd:isFinite(sp)?sp:0,gpsSpeed,loc,drv:cDrv!=null?String(R[cDrv]||'').trim():'',eq,can:measuredCan};
       seen.set(key,record);
       a.push(record);
-    }});
+    }
+    if(isCan&&!canReadings)W.push(f.name+': nenhuma leitura válida de temperatura com placa e horário.');
+  });
   const pm=[0,1,2,3,4].filter(p=>pCount[p]>0);
-  if(!pm.length)return{erro:'Nenhuma leitura de temperatura válida foi encontrada nas colunas Temperatura 1 a 5.'};
-  if(!nRows)return{erro:'Nenhuma linha com data válida em “Emissão/envio”.'};
+  if(!pm.length)return{erro:'Nenhuma leitura válida de temperatura com horário foi encontrada nos arquivos.'};
   S.linhas=nRows;S.dup=dup;S.mdvr=nMdvr;S.sondas=pm.map(p=>p+1);S.ini=minTs;S.fim=maxTs;S.placas=byPlate.size;
   const base=Math.floor(minTs/1440)*1440,locs=['Sem localização'],locIx=new Map([['',0]]);
   const evtL=[],evtIx=new Map(),drvL=[],drvIx=new Map();
@@ -2317,19 +2360,22 @@ function build(files,opt){
   const gap=120,pad=15;let gapW=0;
   [...byPlate.keys()].sort().forEach(pl=>{
     const rows=byPlate.get(pl).sort((a,b)=>a.ts-b.ts);
+    const hasCan=canPlates.has(pl);
     for(let i=1;i<rows.length&&gapW<4;i++)if(rows[i].ts-rows[i-1].ts>1440){gapW++;W.push(`${pl}: sem leituras de ${fmtBR(rows[i-1].ts)} a ${fmtBR(rows[i].ts)} — falta algum arquivo desse período?`);}
     const hasBau=rows.some(r=>r.sens.length>0),hasDesc=rows.some(r=>r.desc!=null);
     const fonte=hasBau?'bau':hasDesc?'descarga':'bau';if(!hasBau&&!hasDesc)semPorta++;
     const eq=modeOf(rows.filter(r=>r.temps.some(isFinite)&&r.eq).map(r=>r.eq))||'Não informado';
     /* amostras: temperatura repete a última leitura até chegar uma nova */
-    let st=0,openTs=0;const last=new Array(5).fill(NaN),sm=[],sensSt={};let prevNv=0;
+    let st=0,openTs=0;const last=new Array(5).fill(NaN),sm=[],sensSt={};let prevNv=0,lastDay=null;
     for(const r of rows){
       let nv=null;if(fonte==='bau'){if(r.sens.length){r.sens.forEach(([k,v])=>sensSt[k]=v);nv=Object.values(sensSt).some(x=>x)?1:0;}}else nv=r.desc;
       if(nv!=null){if(nv===1&&st===0)openTs=r.ts;st=nv;}
       if(st===1&&r.ts-openTs>240)st=0;
+      const day=Math.floor(r.ts/1440);
+      if(hasCan&&day!==lastDay){last.fill(NaN);lastDay=day;}
       r.temps.forEach((x,p)=>{if(isFinite(x))last[p]=x;});
       if(!pm.some(p=>isFinite(last[p])))continue;
-      const t=pm.map(p=>isFinite(last[p])?last[p]:last[pm.find(q=>isFinite(last[q]))]);
+      const t=pm.map(p=>hasCan||isFinite(last[p])?last[p]:last[pm.find(q=>isFinite(last[q]))]);
       const chg=nv!=null&&nv!==prevNv;if(nv!=null)prevNv=nv;
       sm.push({r,t,door:st,ev:chg,act:r.ign===true||st===1||chg||r.spd>0||!!r.risk});
     }
@@ -2366,17 +2412,20 @@ function build(files,opt){
     for(const [a,b] of wins){
       const seg=sm.filter(s=>s.r.ts>=a&&s.r.ts<=b);
       if(seg.length<3||seg[seg.length-1].r.ts-seg[0].r.ts<10)continue;
-      const n=seg.length,tm=new Float64Array(n),door=new Uint8Array(n),spd=new Uint8Array(n),lc=new Uint16Array(n),sArr=pm.map(()=>new Float32Array(n)),ev=[];
+      const n=seg.length,tm=new Float64Array(n),door=new Uint8Array(n),spd=new Uint8Array(n),lc=new Uint16Array(n),
+        sArr=pm.map((_,p)=>new Float32Array(hasCan&&!seg.some(s=>Number.isFinite(s.t[p]))?0:n)),ev=[];
       seg.forEach((s,i)=>{tm[i]=s.r.ts-base;door[i]=s.door;spd[i]=Math.min(255,Math.max(0,Math.round(s.r.spd)));
         let li=locIx.get(s.r.loc);if(li===undefined){li=locs.length;locs.push(s.r.loc);locIx.set(s.r.loc,li);}lc[i]=li;
-        s.t.forEach((x,k)=>sArr[k][i]=x);
+        s.t.forEach((x,k)=>{if(sArr[k].length)sArr[k][i]=x;});
         if(s.r.risk){let e=evtIx.get(s.r.risk);if(e===undefined){e=evtL.length;evtIx.set(s.r.risk,e);
           evtL.push({k:'risco',nome:s.r.risk,nv:/viola|panico|nivel [23]|fora de/.test(nrm(s.r.risk))?'crit':'warn'});}
           ev.push({m:tm[i],e,loc:li});nRisk++;}
         if(s.ev&&s.door===1&&(i===0||seg[i-1].door===0))fonte==='bau'?nBau++:nDesc++;});
       const dn=modeOf(seg.map(s=>s.r.drv).filter(Boolean))||'Não informado';
       let di=drvIx.get(dn);if(di===undefined){di='M'+drvL.length;drvIx.set(dn,di);drvL.push({id:di,nome:dn});}
-      trips.push({id:'T'+trips.length,veic:pl,day:Math.floor(tm[0]/1440),cli:'IMP1',drv:di,tm,s:sArr,door,spd,loc:lc,ev,fonte,imp:true,full:dayMode});
+      const trip={id:'T'+trips.length,veic:pl,day:Math.floor(tm[0]/1440),cli:'IMP1',drv:di,tm,s:sArr,door,spd,loc:lc,ev,fonte,imp:true,full:dayMode};
+      if(hasCan&&seg.some(s=>s.r.can))trip.canFrozenSlot=pm.indexOf(CAN_FROZEN_PROBE);
+      trips.push(trip);
       vi.trips++;
     }
   });
@@ -2510,19 +2559,20 @@ function renumber(){let n=0;document.querySelectorAll('.eyebrow').forEach(e=>{if
 
 /* ---- janela de importação ---- */
 const IMP={files:[],built:null};
-const KIND_L={hist:['Histórico de Veículo','ok'],veic:['Veículo','ok'],cad:['Cadastro (placa/frota/cliente)','ok'],uni:['Unidade Organizacional','ok']};
+const KIND_L={hist:['Histórico de Veículo','ok'],can:['Telemetria CAN · Congelado (T2)','ok'],veic:['Veículo','ok'],cad:['Cadastro (placa/frota/cliente)','ok'],uni:['Unidade Organizacional','ok']};
 function impCC(){
   const on=$('#impComp').value==='1',sondas=IMP.built&&!IMP.built.erro?IMP.built.S.sondas:[];
   const pc=sondas.map((n,i)=>{if(!on||$('#impCmode').value!=='manual')return '';const el=document.querySelector(`#impPmap select[data-i="${i}"]`);return el?el.value:'';});
   return{mode:on?$('#impCmode').value:'manual',veh:{},pcomp:pc,cong:{min:Number($('#impCgMin').value),max:Number($('#impCgMax').value)},resf:{min:Number($('#impRfMin').value),max:Number($('#impRfMax').value)},showCauses:$('#impCause').checked};
 }
 function impPmapRender(){
-  const on=$('#impComp').value==='1';
-  document.querySelectorAll('.cpx').forEach(e=>e.classList.toggle('hide',!on));
+  const on=$('#impComp').value==='1',can=IMP.files.some(f=>f.kind==='can');
+  $('#impCan').hidden=!can;
+  document.querySelectorAll('.cpx').forEach(e=>e.classList.toggle('hide',!on&&!(can&&e.classList.contains('can-range'))));
   const box=$('#impPmap'),sondas=IMP.built&&!IMP.built.erro?IMP.built.S.sondas:[];
   if(!on||!sondas.length||$('#impCmode').value!=='manual'){box.innerHTML='';return;}
   const prev={};box.querySelectorAll('select').forEach(s=>prev[s.dataset.n]=s.value);
-  box.innerHTML=sondas.map((n,i)=>{const v=prev[n]!==undefined?prev[n]:(i===0?'resf':i===1?'cong':'');
+  box.innerHTML=sondas.map((n,i)=>{const v=prev[n]!==undefined?prev[n]:(n===1?'resf':n===2?'cong':'');
     return `<div class="fld"><label>Sonda ${n} é</label><select data-i="${i}" data-n="${n}"><option value="resf" ${v==='resf'?'selected':''}>Resfriado</option><option value="cong" ${v==='cong'?'selected':''}>Congelado</option><option value="" ${v===''?'selected':''}>Faixa do cliente</option></select></div>`;}).join('');
 }
 function impOpt(){return{nome:$('#impCli').value.trim(),carga:$('#impCarga').value.trim(),min:$('#impMin').value,max:$('#impMax').value,tol:$('#impTol').value,trip:$('#impTrip').value};}
@@ -2535,7 +2585,10 @@ function impRender(){
     const r=build(IMP.files,o);IMP.built=r;impPmapRender();
     if(r.erro)h.push(`<p class="e">${esc(r.erro)}</p>`);
     else{const S=r.S;ok=isFinite(Number(o.min))&&isFinite(Number(o.max))&&Number(o.min)<Number(o.max);
-      if($('#impComp').value==='1'){const c=impCC();const man=c.mode==='manual';ok=ok&&c.cong.min<c.cong.max&&c.resf.min<c.resf.max&&(!man||c.pcomp.some(x=>x))&&(man||S.sondas.length>=2);
+      const hasCan=IMP.files.some(f=>f.kind==='can'),hasStandard=IMP.files.some(f=>f.kind==='hist');
+      const c=impCC();
+      if(hasCan)ok=ok&&c.cong.min<c.cong.max;
+      if($('#impComp').value==='1'&&hasStandard){const man=c.mode==='manual';ok=ok&&c.cong.min<c.cong.max&&c.resf.min<c.resf.max&&(!man||c.pcomp.some(x=>x))&&(man||S.sondas.length>=2);
         if(man&&!c.pcomp.some(x=>x))h.push('<p class="e">Escolha o compartimento de pelo menos uma sonda.</p>');
         if(!man&&S.sondas.length<2)h.push('<p class="e">Para identificar os compartimentos automaticamente são necessárias pelo menos 2 sondas nos arquivos.</p>');}
       const sk=S.nBau?`${S.nBau} aberturas pelo sensor de baú`:'',sd=S.nDesc?`${S.nDesc} aberturas por início/fim de descarga`:'';
@@ -2559,7 +2612,8 @@ async function impAdd(list){
 }
 function initImport(){
   $('#impNeed').innerHTML=`<table class="tbl" style="width:100%"><tr><th>Arquivo</th><th>Colunas usadas</th><th>Para quê</th></tr>
-   <tr><td><b>Histórico de Veículo</b> (obrigatório)</td><td>Emissão/envio · Placa · Temperatura 1 a 5 · Informação · Ignição · Entradas · Motorista · Tipo do equipamento · Velocidade (GPS) · Ponto referência</td><td>Curva, efetividade, ocorrências, aberturas (Sensor de Baú Traseiro ou Início/Fim de Descarga), motoristas, regras de risco</td></tr>
+   <tr><td><b>Histórico de Veículo</b></td><td>Emissão/envio · Placa · Temperatura 1 a 5 · Informação · Ignição · Entradas · Motorista · Tipo do equipamento · Velocidade (GPS) · Ponto referência</td><td>Curva, efetividade, ocorrências, aberturas (Sensor de Baú Traseiro ou Início/Fim de Descarga), motoristas, regras de risco</td></tr>
+   <tr><td><b>Telemetria CAN</b></td><td>Emissão · Placa / Nome · Temperatura da cabine (CAN Refrigeração) · Velocidade por GPS (km/h)</td><td>Congelado (T2), nome do veículo e velocidade na leitura</td></tr>
    <tr><td><b>Veículo</b> (opcional)</td><td>Placa · Unidade organizacional (proprietária)</td><td>Filtro e ranking por unidade</td></tr>
    <tr><td><b>Cadastro</b> (opcional)</td><td>Placa · Nome do veículo · Frota · Cliente · Unidade</td><td>Nome do veículo e filtro por frota, vários clientes no mesmo relatório (cada um com sua faixa) e unidade, se não houver arquivo Veículo</td></tr>
    <tr><td><b>Unidade Organizacional</b> (opcional)</td><td>Apelido · Área (termina com “- UF”)</td><td>Filtro e ranking por região</td></tr></table>
