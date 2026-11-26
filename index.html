@@ -429,12 +429,14 @@ html[data-layout=placas] :is(.pickbox,#vBad,#vList > * > :last-child){display:no
   --monitor-band:#1b2737;--monitor-head:#e7effa;--monitor-stripe:#f3f4f6;
   --monitor-line:#d2dae3;--monitor-focus:#e0f3fc;--monitor-link:#006b93;
   --monitor-ok:#08783c;--monitor-warn:#905500;--monitor-bad:#b72331;
+  --monitor-curve:#1649bd;--monitor-range:#e1f4e6;
   margin:18px 0 0;border:1px solid var(--monitor-line);border-radius:9px;
   background:var(--card);font-size:13px;font-variant-numeric:tabular-nums
 }
 html[data-theme=dark] #plateReport{
   --monitor-head:#25354c;--monitor-stripe:#1c2539;--monitor-line:#43516b;
-  --monitor-focus:#243f57;--monitor-link:#7dd7ff;--monitor-ok:#6ee5a0;--monitor-warn:#ffd479;--monitor-bad:#ff9ca4
+  --monitor-focus:#243f57;--monitor-link:#7dd7ff;--monitor-ok:#6ee5a0;--monitor-warn:#ffd479;--monitor-bad:#ff9ca4;
+  --monitor-curve:#9ebcff;--monitor-range:#183b32
 }
 .plate-title{margin:0;padding:9px 14px;background:var(--monitor-band);color:#fff;font-size:15px;border-radius:8px 8px 0 0}
 .plate-tools{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 14px;background:var(--monitor-stripe)}
@@ -444,41 +446,45 @@ html[data-theme=dark] #plateReport{
 .plate-detail>span{display:grid;gap:2px}
 .plate-detail small{color:var(--ink2);font-size:11px}
 .plate-detail strong{font-size:14px;white-space:nowrap}
-.plate-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:4px 14px 12px}
+.plate-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:6px 14px 14px}
 .plate-charts[hidden]{display:none}
 .plate-charts figure{min-width:0;margin:0;border:1px solid var(--monitor-line);border-radius:8px;break-inside:avoid}
-.plate-charts figcaption{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 14px;
-  padding:10px 12px;background:var(--monitor-head);border-radius:7px 7px 0 0}
-.plate-chart-title{display:grid;gap:3px}
-.plate-chart-title b{font-size:17px}
-.plate-charts figcaption small{color:var(--ink2);font-size:11px}
+.plate-charts figcaption{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px 16px;
+  padding:12px 14px;background:var(--monitor-head);border-bottom:1px solid var(--monitor-line);border-radius:7px 7px 0 0}
+.plate-chart-title{display:grid;gap:4px}
+.plate-chart-title b{font-size:20px;line-height:1.15}
+.plate-charts figcaption small{color:var(--ink2);font-size:12px}
 .plate-chart-metrics{display:flex;gap:8px 14px;flex-wrap:wrap;margin:0}
-.plate-chart-metrics dt{font-size:11px;color:var(--ink2)}
-.plate-chart-metrics dd{margin:2px 0 0;font-size:14px;font-weight:700}
+.plate-chart-metrics>div{padding-left:12px;border-left:1px solid var(--monitor-line)}
+.plate-chart-metrics dt{font-size:12px;color:var(--ink2)}
+.plate-chart-metrics dd{margin:3px 0 0;font-size:16px;font-weight:700;white-space:nowrap}
 .plate-plot{position:relative}
 .plate-plot svg{display:block;width:100%;height:auto;touch-action:pan-y}
 .plate-plot svg:focus-visible{outline:2px solid var(--monitor-link);outline-offset:-2px}
-.plate-plot svg text{fill:var(--ink2);font-size:13px}
+.plate-plot svg text{fill:var(--ink2);font-size:14px}
 .plate-chart-grid{stroke:var(--monitor-line);stroke-width:1}
-.plate-chart-range{fill:var(--okbg)}
-.plate-chart-limit{stroke:var(--monitor-ok);stroke-width:1;stroke-dasharray:4 3}
+.plate-chart-axis{fill:none;stroke:var(--ink3);stroke-width:1}
+.plate-chart-range{fill:var(--monitor-range)}
+.plate-chart-limit{stroke:var(--monitor-ok);stroke-width:1.3;stroke-dasharray:4 3}
 .plate-plot svg .plate-limit-label{fill:var(--monitor-ok);font-weight:700}
-.plate-chart-gap{fill:var(--ink3);fill-opacity:.18}
-.plate-chart-line{fill:none;stroke:var(--monitor-link);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
-.plate-chart-out{stroke:var(--monitor-bad)}
-.plate-extreme circle,.plate-chart-cross circle{fill:var(--card);stroke:var(--monitor-link);stroke-width:2}
+.plate-chart-line{fill:none;stroke:var(--monitor-curve);stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.plate-chart-out{stroke:var(--monitor-bad);stroke-width:1.8}
+.plate-extreme circle,.plate-chart-cross circle{fill:var(--card);stroke:var(--monitor-curve);stroke-width:2}
 .plate-extreme.plate-bad circle,.plate-chart-cross.plate-bad circle{stroke:var(--monitor-bad)}
-.plate-plot svg .plate-extreme text,.plate-plot svg .plate-gap-label{
-  fill:var(--ink);font-weight:700;paint-order:stroke;stroke:var(--card);stroke-width:4;stroke-linejoin:round}
+.plate-plot svg .plate-extreme text{fill:var(--ink);font-weight:700;paint-order:stroke;stroke:var(--card);stroke-width:4;stroke-linejoin:round}
+@media(max-width:550px){
+  .plate-plot svg text{font-size:17px}
+  .plate-plot svg .plate-limit-label{font-size:14px}
+  .plate-chart-metrics>div:first-child{padding-left:0;border-left:0}
+}
 .plate-chart-cross line{stroke:var(--ink2);stroke-width:1;stroke-dasharray:4 3}
 .plate-chart-tip{position:absolute;z-index:1;padding:7px 9px;width:max-content;max-width:min(200px,52%);
   transform:translateY(-100%);top:max(68px,var(--tip-y));left:clamp(4px,calc(var(--tip-x) - 92px),calc(100% - min(204px,53%)));
   border:1px solid var(--monitor-line);border-radius:6px;background:var(--card);box-shadow:var(--shadow);pointer-events:none;font-size:12px}
 .plate-chart-tip span{display:block}
 .plate-chart-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:5px 15px;padding:0 10px 9px;font-size:11px;color:var(--ink2)}
-.plate-chart-legend i{display:inline-block;vertical-align:middle;width:16px;margin-right:4px;border-top:3px solid var(--monitor-link)}
-.plate-chart-legend .out i{border-color:var(--monitor-bad)}
-.plate-chart-legend .gap i{border-top:3px dashed var(--ink3)}
+.plate-chart-legend i{display:inline-block;vertical-align:middle;width:18px;height:4px;margin-right:4px;background:var(--monitor-curve);border-radius:4px}
+.plate-chart-legend .out i{background:linear-gradient(var(--monitor-curve) 0 25%,var(--monitor-bad) 25% 75%,var(--monitor-curve) 75%)}
 .plate-chart-empty{min-height:150px;display:grid;place-items:center;margin:0;color:var(--ink2)}
 #plateTable td.plate-select{width:1%;white-space:nowrap}
 #plateTable button[data-view-plate]{min-width:62px;padding:3px 8px;border:1px solid var(--monitor-line);background:var(--card);border-radius:5px}
@@ -1393,7 +1399,7 @@ function plateEffectiveness(eff){
 }
 
 const PLATE_CHARTS=new Map();
-const PLATE_PLOT={width:620,height:266,left:56,right:548,top:22,bottom:232};
+const PLATE_PLOT={width:640,height:306,left:65,right:548,top:30,bottom:269};
 const outsidePlateRange=(value,rule)=>value<rule.min||value>rule.max;
 
 function plateChartData(probe){
@@ -1430,7 +1436,7 @@ function renderPlateChart(probe,comp,plate){
   const model=plateChartData(probe);
   const {width,height,left,right,top,bottom}=PLATE_PLOT, plotWidth=right-left;
   const from=ST.from*1440,to=(ST.to+1)*1440;
-  const {low,high,samples,segments,gaps}=model;
+  const {low,high,samples,segments}=model;
   const x=t=>left+plotWidth*(t-from)/(to-from);
   const y=v=>bottom-(bottom-top)*(v-low)/(high-low);
   Object.assign(model,{x,y,from,to,index:-1});
@@ -1461,10 +1467,6 @@ function renderPlateChart(probe,comp,plate){
   }).join('');
 
   const rect=(xx,yy,w,hh)=>`<rect x="${xx.toFixed(1)}" y="${yy.toFixed(1)}" width="${w.toFixed(1)}" height="${hh.toFixed(1)}"/>`;
-  const gapArea=gaps.map(({start,stop})=>rect(x(start),top,x(stop)-x(start),bottom-top)).join('');
-  const gapLabel=gaps.reduce((largest,gap)=>!largest||gap.stop-gap.start>largest.stop-largest.start?gap:largest,null);
-  const showGapLabel=gapLabel&&x(gapLabel.stop)-x(gapLabel.start)>74;
-
   const path=[];
   let lastTime=null,lastValue=null;
   for(const {start,stop,a,b} of segments){
@@ -1497,12 +1499,12 @@ function renderPlateChart(probe,comp,plate){
     aria-label="${esc(name+' · '+plate+' · curva de temperatura. Use as setas para consultar as leituras.')}" aria-describedby="plate-reading-${comp}">
     <defs><clipPath id="${clip}">${rect(left-3,top-3,plotWidth+6,maxY-top+3)}${rect(left-3,minY,plotWidth+6,bottom-minY+3)}</clipPath></defs>
     <g class="plate-chart-range">${rect(left,maxY,plotWidth,minY-maxY)}</g>${grid.join('')}
-    <g class="plate-chart-gap">${gapArea}</g>${limits}
+    <path class="plate-chart-axis" d="M${left},${top}V${bottom}H${right}"/>${limits}
     <path class="plate-chart-line" d="${line}"/><path class="plate-chart-line plate-chart-out" clip-path="url(#${clip})" d="${line}"/>
-    ${extremes}${showGapLabel?`<text class="plate-gap-label" x="${x((gapLabel.start+gapLabel.stop)/2).toFixed(1)}" y="${top+16}" text-anchor="middle">Sem sinal</text>`:''}
+    ${extremes}
     <g class="plate-chart-cross" visibility="hidden" aria-hidden="true"><line x1="0" x2="0" y1="${top}" y2="${bottom}"/><circle cx="0" cy="0" r="4.5"/></g>
     </svg><div class="plate-chart-tip" id="plate-reading-${comp}" role="status" hidden></div></div>
-    <div class="plate-chart-legend"><span><i></i>Dentro da faixa</span><span class="out"><i></i>Fora da faixa</span><span class="gap"><i></i>Sem sinal</span></div>`);
+    <div class="plate-chart-legend"><span><i></i>Dentro da faixa</span><span class="out"><i></i>Fora da faixa</span></div>`);
 }
 
 function nearestPlateReading(samples,time){
@@ -1533,7 +1535,7 @@ function showPlateReading(plot,model,sample,gap){
     content=`<b>${fmtDT(time)}</b><span>Temperatura: ${fmtC(value)}</span><span class="plate-${difference>0?'bad':'ok'}">${status}</span>`;
   }else{
     x=model.x((gap.start+gap.stop)/2);y=PLATE_PLOT.top+48;
-    content=`<b>Sem sinal</b><span>${fmtDT(gap.start)} a ${fmtDT(gap.stop)}</span>`;
+    content=`<b>Sem leituras neste intervalo</b><span>${fmtDT(gap.start)} a ${fmtDT(gap.stop)}</span>`;
   }
   tip.style.setProperty('--tip-x',x/PLATE_PLOT.width*100+'%');
   tip.style.setProperty('--tip-y',y/PLATE_PLOT.height*100+'%');
