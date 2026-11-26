@@ -428,13 +428,13 @@ html[data-layout=placas] :is(.pickbox,#vBad,#vList > * > :last-child){display:no
 #plateReport{
   --monitor-band:#1b2737;--monitor-head:#e7effa;--monitor-stripe:#f3f4f6;
   --monitor-line:#d2dae3;--monitor-focus:#e0f3fc;--monitor-link:#006b93;
-  --monitor-ok:#08783c;--monitor-bad:#b72331;
+  --monitor-ok:#08783c;--monitor-warn:#905500;--monitor-bad:#b72331;
   margin:18px 0 0;border:1px solid var(--monitor-line);border-radius:9px;
   background:var(--card);font-size:13px;font-variant-numeric:tabular-nums
 }
 html[data-theme=dark] #plateReport{
   --monitor-head:#25354c;--monitor-stripe:#1c2539;--monitor-line:#43516b;
-  --monitor-focus:#243f57;--monitor-link:#7dd7ff;--monitor-ok:#6ee5a0;--monitor-bad:#ff9ca4
+  --monitor-focus:#243f57;--monitor-link:#7dd7ff;--monitor-ok:#6ee5a0;--monitor-warn:#ffd479;--monitor-bad:#ff9ca4
 }
 .plate-title{margin:0;padding:9px 14px;background:var(--monitor-band);color:#fff;font-size:15px;border-radius:8px 8px 0 0}
 .plate-tools{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 14px;background:var(--monitor-stripe)}
@@ -444,6 +444,25 @@ html[data-theme=dark] #plateReport{
 .plate-detail>span{display:grid;gap:2px}
 .plate-detail small{color:var(--ink2);font-size:11px}
 .plate-detail strong{font-size:14px;white-space:nowrap}
+.plate-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:4px 14px 12px}
+.plate-charts[hidden]{display:none}
+.plate-charts figure{margin:0;padding:8px 9px 4px;border:1px solid var(--monitor-line);border-radius:6px;break-inside:avoid}
+.plate-charts figcaption{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 12px}
+.plate-charts figcaption small{color:var(--ink2)}
+.plate-charts svg{display:block;width:100%;height:auto;max-height:185px}
+.plate-charts svg text{fill:var(--ink2);font-size:11px}
+.plate-chart-grid{stroke:var(--monitor-line);stroke-width:1}
+.plate-chart-range{fill:var(--okbg);stroke:var(--monitor-ok);stroke-width:.7;stroke-dasharray:3 3}
+.plate-chart-line{fill:none;stroke:var(--monitor-link);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.plate-chart-empty{min-height:100px;display:grid;place-items:center;margin:0;color:var(--ink2)}
+#plateTable td.plate-select{width:1%;white-space:nowrap}
+#plateTable button[data-view-plate]{min-width:62px;padding:3px 8px;border:1px solid var(--monitor-line);background:var(--card);border-radius:5px}
+#plateTable button[data-view-plate][aria-pressed=true]{border-color:var(--monitor-link);background:var(--monitor-focus)}
+#plateDetail{scroll-margin-top:140px}
+@media(max-width:700px){
+  .plate-charts{grid-template-columns:1fr}
+  #plateDetail{scroll-margin-top:12px}
+}
 .plate-scroll{overflow:auto;max-height:65vh}
 #plateTable{width:100%;min-width:660px;border-collapse:separate;border-spacing:0}
 #plateTable :is(th,td){padding:5px 9px;border-bottom:1px solid var(--monitor-line);text-align:center}
@@ -460,13 +479,17 @@ html[data-theme=dark] #plateReport{
 .plate-status{white-space:nowrap}
 .plate-status i{display:inline-grid;place-items:center;vertical-align:middle;margin-left:4px;width:14px;height:14px;border:1px solid currentColor;border-radius:50%;font:700 10px/1 system-ui}
 .plate-ok{color:var(--monitor-ok)}
+.plate-warn{color:var(--monitor-warn)}
 .plate-bad{color:var(--monitor-bad)}
+.plate-status,.plate-temp{font-weight:700}
 .plate-foot{margin:0;padding:8px 14px;color:var(--ink2);border-top:1px solid var(--monitor-line)}
 @media print{
   html[data-layout=placas] #plateReport{margin:0}
   #plateReport .plate-scroll{overflow:visible;max-height:none}
   #plateTable{min-width:0}
   #plateTable tr{break-inside:avoid}
+  #plateTable .plate-select{display:none}
+  .plate-charts{grid-template-columns:repeat(2,minmax(0,1fr));break-inside:avoid}
   .plate-tools input{display:none}
 }
 </style>
@@ -545,10 +568,12 @@ s.onchange=function(){ap(s.value);try{localStorage.setItem(K,s.value)}catch(e){}
     <input id="plateQuery" type="search" placeholder="Buscar placa" aria-label="Buscar placa">
   </div>
   <div id="plateDetail" class="plate-detail" aria-live="polite"></div>
+  <div id="plateCharts" class="plate-charts" aria-label="Curvas da placa selecionada" hidden></div>
   <div class="plate-scroll">
     <table id="plateTable" aria-labelledby="plateTitle" aria-describedby="plateFoot">
       <thead>
         <tr>
+          <th scope="col" class="plate-select" rowspan="2">Ver</th>
           <th scope="col" rowspan="2" aria-sort="ascending"><button type="button" data-sort="plate">Placa <span aria-hidden="true">↑</span></button></th>
           <th scope="colgroup" colspan="3" id="plateCold">Temperatura 1 · Resfriado</th>
           <th scope="colgroup" colspan="3" id="plateFrozen">Temperatura 2 · Congelado</th>
@@ -1234,35 +1259,45 @@ function refresh(keepDrawer){
 const PLATE_VIEW={rows:[],selected:null,sort:'plate',direction:1};
 const PLATE_COMP=['resf','cong'];
 const isPlateView=()=>document.documentElement.dataset.layout==='placas';
-const plateTemp=n=>Number.isFinite(n)?fmtC(n):'—';
+function plateTemp(n,rule){
+  if(!Number.isFinite(n))return '—';
+  const status=n<rule.min?'Abaixo da faixa':n>rule.max?'Acima da faixa':'Dentro da faixa';
+  const color=n>=rule.min&&n<=rule.max?'ok':'bad';
+  return `<span class="plate-temp plate-${color}" title="${status}" aria-label="${fmtC(n)} · ${status}">${fmtC(n)}</span>`;
+}
 
-function plateProbeStats(series,rule){
+// Delimita os intervalos usados no cálculo e na curva de cada sonda.
+function forEachPlateInterval(series,onSample,onInterval){
   const from=ST.from*1440, to=(ST.to+1)*1440;
-  const result={tOp:0,tOut:0,min:Infinity,max:-Infinity};
   for(const samples of series){
     for(let i=0;i<samples.length;i+=2){
-      const t=samples[i], x=samples[i+1], next=samples[i+2];
+      const t=samples[i], value=samples[i+1], next=samples[i+2];
       if(t>=to)break;
-      if(t>=from&&shOn(t)){
-        result.min=Math.min(result.min,x);
-        result.max=Math.max(result.max,x);
-      }
+      if(t>=from&&shOn(t))onSample(t,value);
       if(!(next>t&&next-t<=CFG.gap))continue;
       const end=Math.min(to,next);
       for(let start=Math.max(from,t);start<end;){
         const day=Math.floor(start/1440)*1440;
         const shift=TURNOS.find(s=>start<day+s.b);
         const stop=Math.min(end,day+shift.b);
-        if(SHSET.has(shift.id)){
-          const duration=stop-start;
-          result.tOp+=duration;
-          if(x<rule.min||x>rule.max)result.tOut+=duration;
-        }
+        if(SHSET.has(shift.id))onInterval(start,stop,value);
         start=stop;
       }
     }
   }
-  return {eff:effOf(result),min:result.min,max:result.max};
+}
+
+function plateProbeStats(series,rule){
+  const result={tOp:0,tOut:0,min:Infinity,max:-Infinity};
+  forEachPlateInterval(series,(_,value)=>{
+    result.min=Math.min(result.min,value);
+    result.max=Math.max(result.max,value);
+  },(start,stop,value)=>{
+    const duration=stop-start;
+    result.tOp+=duration;
+    if(value<rule.min||value>rule.max)result.tOut+=duration;
+  });
+  return {eff:effOf(result),min:result.min,max:result.max,series,rule};
 }
 
 function demoPlateTemps(trips){
@@ -1322,8 +1357,57 @@ function plateRows(){
 
 function plateEffectiveness(eff){
   if(!Number.isFinite(eff))return '<span title="Tempo monitorado insuficiente">—</span>';
-  const ok=eff>=CFG.meta, status=ok?'Na meta':'Abaixo da meta';
-  return `<span class="plate-status" title="${status}">${pct(eff)}<i class="${ok?'plate-ok':'plate-bad'}" aria-label="${status}">${ok?'✓':'×'}</i></span>`;
+  const level=eff>=CFG.meta?'ok':eff>=CFG.meta-10?'warn':'bad';
+  const [status,mark]={ok:['Na meta','✓'],warn:['Próximo da meta, ainda abaixo','!'],bad:['Abaixo da meta','×']}[level];
+  return `<span class="plate-status plate-${level}" title="${status}" aria-label="${pct(eff)} · ${status}">${pct(eff)}<i aria-hidden="true">${mark}</i></span>`;
+}
+
+function renderPlateChart(probe,comp,plate){
+  const {rule,series}=probe, name=CPN[comp];
+  const figure=body=>`<figure><figcaption><b>${name}</b><small>Faixa ${fmtR(rule.min)} a ${fmtR(rule.max)} °C</small></figcaption>${body}</figure>`;
+  if(!Number.isFinite(probe.min)&&!Number.isFinite(probe.eff)){
+    return figure('<p class="plate-chart-empty">Sem leituras no período selecionado</p>');
+  }
+  const from=ST.from*1440,to=(ST.to+1)*1440;
+  const left=42,right=532,top=12,bottom=135;
+  let low=Math.min(probe.min,rule.min,rule.max),high=Math.max(probe.max,rule.min,rule.max);
+  forEachPlateInterval(series,()=>{},(_start,_stop,value)=>{low=Math.min(low,value);high=Math.max(high,value);});
+  const pad=Math.max(1,(high-low)*.08);
+  low-=pad;high+=pad;
+  const x=t=>left+(right-left)*(t-from)/(to-from);
+  const y=v=>bottom-(bottom-top)*(v-low)/(high-low);
+  const step=niceStep(high-low);
+  const grid=[];
+  for(let v=Math.ceil(low/step)*step;v<=high;v+=step){
+    const py=y(v).toFixed(1);
+    grid.push(`<path class="plate-chart-grid" d="M${left},${py}H${right}"/><text x="36" y="${py}" text-anchor="end" dominant-baseline="middle">${fmtR(Math.round(v*10)/10)}°</text>`);
+  }
+  const days=ST.to-ST.from+1;
+  const ticks=days===1?[0,360,720,1080,1440]
+    :Array.from({length:Math.min(days,5)},(_,i)=>Math.round(i*(days-1)/Math.min(days-1,4))*1440);
+  for(const offset of ticks){
+    const minute=from+offset;
+    const label=days===1?(offset===1440?'24:00':fmtT(offset)):fmtD(Math.floor(minute/1440));
+    const anchor=minute===from?'start':minute===to?'end':'middle';
+    grid.push(`<text x="${x(minute)}" y="155" text-anchor="${anchor}">${label}</text>`);
+  }
+  const bandTop=y(Math.max(rule.min,rule.max)),bandHeight=Math.abs(y(rule.min)-y(rule.max));
+  const path=[],marks=[];
+  let lastEnd=null,lastY=null,lastMark='';
+  forEachPlateInterval(series,(time,value)=>{
+    const point=`${x(time).toFixed(1)},${y(value).toFixed(1)}`;
+    if(point!==lastMark)marks.push(`M${point}h.1`);
+    lastMark=point;
+  },(start,stop,value)=>{
+    const x0=x(start).toFixed(1),x1=x(stop).toFixed(1),py=y(value).toFixed(1);
+    if(start!==lastEnd||py!==lastY)path.push(`M${x0},${py}H${x1}`);
+    else if(x1!==x0)path.push(`H${x1}`);
+    lastEnd=stop;lastY=py;
+  });
+  return figure(`<svg viewBox="0 0 550 163" role="img" aria-label="${esc(name+' · '+plate+' · temperatura ao longo do período')}">
+    <rect class="plate-chart-range" x="${left}" y="${bandTop.toFixed(1)}" width="${right-left}" height="${bandHeight.toFixed(1)}"/>
+    ${grid.join('')}<path class="plate-chart-line" d="${path.join('')}${marks.join('')}"/>
+  </svg>`);
 }
 
 function updatePlateSelection(rows){
@@ -1331,23 +1415,27 @@ function updatePlateSelection(rows){
   const item=(label,value)=>`<span><small>${label}</small><strong>${value}</strong></span>`;
   $('#plateDetail').innerHTML=row
     ?item('Placa',esc(row.plate))+row.probes.map((p,i)=>item(CPN[PLATE_COMP[i]],plateEffectiveness(p.eff))+
-        item('Mín. T'+(i+1),plateTemp(p.min))+item('Máx. T'+(i+1),plateTemp(p.max))).join('')
-    :rows.length?'Selecione uma placa para ver seus indicadores.':'';
+        item('Mín. T'+(i+1),plateTemp(p.min,p.rule))+item('Máx. T'+(i+1),plateTemp(p.max,p.rule))).join('')
+    :rows.length?'Clique em “Ver” ao lado da placa para abrir os gráficos.':'';
   $('#plateDetail').hidden=!rows.length;
+  $('#plateCharts').hidden=!row;
+  $('#plateCharts').innerHTML=row?row.probes.map((p,i)=>renderPlateChart(p,PLATE_COMP[i],row.plate)).join(''):'';
   document.querySelectorAll('#plateTable tbody tr[data-plate]').forEach(tr=>{
     const selected=tr.dataset.plate===row?.id;
     tr.toggleAttribute('data-selected',selected);
-    tr.querySelector('button').setAttribute('aria-pressed',String(selected));
+    const button=tr.querySelector('[data-view-plate]');
+    button.setAttribute('aria-pressed',String(selected));
+    button.textContent=selected?'Em foco':'Ver';
   });
 }
 
 function renderPlateRows(){
   const rows=plateRows();
   const legacy=DATA.meta&&!DATA.plateTemps;
-  $('#plateTable tbody').innerHTML=rows.map(r=>`<tr data-plate="${esc(r.id)}"><th scope="row"><button type="button" aria-pressed="false">${esc(r.plate)}</button></th>${
-    r.probes.map(p=>`<td>${plateEffectiveness(p.eff)}</td><td>${plateTemp(p.min)}</td><td>${plateTemp(p.max)}</td>`).join('')}</tr>`).join('')
-    ||`<tr><td colspan="7">${legacy?'Reimporte o Histórico de Veículo original para calcular os indicadores a partir das leituras de cada sonda.':'Nenhuma placa com leitura no recorte selecionado.'}</td></tr>`;
-  $('#plateFoot').textContent=rows.length+' placa(s) · Efetividade = % do tempo monitorado dentro da faixa. Intervalos acima de '+CFG.gap+' min ficam fora do cálculo. Mínima e máxima são leituras observadas.';
+  $('#plateTable tbody').innerHTML=rows.map(r=>`<tr data-plate="${esc(r.id)}"><td class="plate-select"><button type="button" data-view-plate aria-label="Ver gráficos de ${esc(r.plate)}" aria-controls="plateCharts" aria-pressed="false">Ver</button></td><th scope="row">${esc(r.plate)}</th>${
+    r.probes.map(p=>`<td>${plateEffectiveness(p.eff)}</td><td>${plateTemp(p.min,p.rule)}</td><td>${plateTemp(p.max,p.rule)}</td>`).join('')}</tr>`).join('')
+    ||`<tr><td colspan="8">${legacy?'Reimporte o Histórico de Veículo original para calcular os indicadores a partir das leituras de cada sonda.':'Nenhuma placa com leitura no recorte selecionado.'}</td></tr>`;
+  $('#plateFoot').textContent=rows.length+' placa(s) · Efetividade = % do tempo monitorado dentro da faixa. Intervalos acima de '+CFG.gap+' min ficam fora do cálculo. Efetividade em verde na meta, âmbar até 10 p.p. abaixo e vermelho nas demais. Temperaturas em vermelho estão fora da faixa.';
   $('#btnCsv').disabled=!rows.length;
   document.querySelectorAll('#plateTable thead button').forEach(b=>{
     const current=b.dataset.sort===PLATE_VIEW.sort;
@@ -1371,6 +1459,11 @@ $('#plateTable').onclick=e=>{
   if(row){
     PLATE_VIEW.selected=row.dataset.plate;
     updatePlateSelection(plateRows());
+    const detail=$('#plateDetail');
+    const filters=$('#filters'), sticky=getComputedStyle(filters).position==='sticky';
+    if(detail.getBoundingClientRect().top<(sticky?filters.getBoundingClientRect().bottom:0)){
+      detail.scrollIntoView({block:'start'});
+    }
   }
 };
 
