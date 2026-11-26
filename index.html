@@ -467,7 +467,7 @@ html[data-theme=dark] #plateReport{
 .plate-chart-range{fill:var(--monitor-range)}
 .plate-chart-limit{stroke:var(--monitor-ok);stroke-width:1.3;stroke-dasharray:4 3}
 .plate-plot svg .plate-limit-label{fill:var(--monitor-ok);font-weight:700}
-.plate-chart-line{fill:none;stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.plate-chart-line{fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .plate-extreme circle,.plate-chart-cross circle{fill:var(--card);stroke:var(--monitor-curve);stroke-width:2}
 .plate-extreme.plate-bad circle,.plate-chart-cross.plate-bad circle{stroke:var(--monitor-bad)}
 .plate-plot svg .plate-extreme text{fill:var(--ink);font-weight:700;paint-order:stroke;stroke:var(--card);stroke-width:4;stroke-linejoin:round}
@@ -1459,13 +1459,22 @@ function renderPlateChart(probe,comp,plate){
   }).join('');
 
   const rect=(xx,yy,w,hh)=>`<rect x="${xx.toFixed(1)}" y="${yy.toFixed(1)}" width="${w.toFixed(1)}" height="${hh.toFixed(1)}"/>`;
+  const slope=segment=>(segment.b-segment.a)/(segment.stop-segment.start);
+  // Monotone tangents keep the curve on the original readings without adding peaks.
+  const tangent=(a,b)=>a*b>0?2*a*b/(a+b):0;
+  const point=(minute,value)=>`${x(minute).toFixed(1)},${y(value).toFixed(1)}`;
   const path=[];
-  let lastTime=null,lastValue=null;
-  for(const {start,stop,a,b} of segments){
-    if(start!==lastTime||a!==lastValue)path.push(`M${x(start).toFixed(1)},${y(a).toFixed(1)}`);
-    path.push(`L${x(stop).toFixed(1)},${y(b).toFixed(1)}`);
-    lastTime=stop;lastValue=b;
-  }
+  segments.forEach((segment,i)=>{
+    const {start,stop,a,b}=segment;
+    const prev=segments[i-1],next=segments[i+1],current=slope(segment),third=(stop-start)/3;
+    const joinsPrevious=prev?.stop===start&&prev.b===a;
+    const joinsNext=next?.start===stop&&next.a===b;
+    const entering=joinsPrevious?tangent(slope(prev),current):current;
+    const leaving=joinsNext?tangent(current,slope(next)):current;
+    if(!joinsPrevious)path.push(`M${point(start,a)}`);
+    if(entering===current&&leaving===current)path.push(`L${point(stop,b)}`);
+    else path.push(`C${point(start+third,a+entering*third)} ${point(stop-third,b-leaving*third)} ${point(stop,b)}`);
+  });
   // Keep isolated readings visible without drawing a connection across missing signal.
   const marks=[];
   let segmentIndex=0;
