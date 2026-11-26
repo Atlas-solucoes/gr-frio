@@ -1299,24 +1299,20 @@ function plateTemp(n,rule){
 }
 
 // Delimita os intervalos usados no cálculo e na curva de cada sonda.
-function forEachPlateInterval(series,onSample,onInterval,onGap){
+function forEachPlateInterval(series,onSample,onInterval){
   const from=ST.from*1440, to=(ST.to+1)*1440;
   for(const samples of series){
     for(let i=0;i<samples.length;i+=2){
       const t=samples[i], value=samples[i+1], next=samples[i+2];
       if(t>=to)break;
       if(t>=from&&shOn(t))onSample(t,value);
-      const gap=next-t>CFG.gap;
-      if(!(next>t)||(gap&&!onGap))continue;
+      if(!(next>t&&next-t<=CFG.gap))continue;
       const end=Math.min(to,next);
       for(let start=Math.max(from,t);start<end;){
         const day=Math.floor(start/1440)*1440;
         const shift=TURNOS.find(s=>start<day+s.b);
         const stop=Math.min(end,day+shift.b);
-        if(SHSET.has(shift.id)){
-          if(gap)onGap(start,stop);
-          else onInterval(start,stop,value,t,next,samples[i+3]);
-        }
+        if(SHSET.has(shift.id))onInterval(start,stop,value,t,next,samples[i+3]);
         start=stop;
       }
     }
@@ -1403,7 +1399,7 @@ const PLATE_PLOT={width:640,height:306,left:65,right:548,top:30,bottom:269};
 const outsidePlateRange=(value,rule)=>value<rule.min||value>rule.max;
 
 function plateChartData(probe){
-  const {series,rule}=probe, samples=[],segments=[],gaps=[];
+  const {series,rule}=probe, samples=[],segments=[];
   let low=rule.min,high=rule.max;
   const include=value=>{low=Math.min(low,value);high=Math.max(high,value);};
   forEachPlateInterval(series,(time,value)=>{
@@ -1414,14 +1410,11 @@ function plateChartData(probe){
     const a=readAt(start),b=readAt(stop);
     segments.push({start,stop,a,b});
     include(a);include(b);
-  },(start,stop)=>{
-    const last=gaps[gaps.length-1];
-    if(last?.stop===start)last.stop=stop;
-    else gaps.push({start,stop});
   });
   samples.sort((a,b)=>a.time-b.time);
+  segments.sort((a,b)=>a.start-b.start);
   const pad=Math.max(1,(high-low)*.08);
-  return {samples,segments,gaps,rule,low:low-pad,high:high+pad};
+  return {samples,segments,rule,low:low-pad,high:high+pad};
 }
 
 function renderPlateChart(probe,comp,plate){
@@ -1517,26 +1510,30 @@ function nearestPlateReading(samples,time){
   return left>0&&time-samples[left-1].time<samples[left].time-time?left-1:left;
 }
 
-function showPlateReading(plot,model,sample,gap){
+function plateHasTrace(segments,time){
+  let left=0,right=segments.length;
+  while(left<right){
+    const mid=Math.floor((left+right)/2);
+    if(segments[mid].start<=time)left=mid+1;
+    else right=mid;
+  }
+  return left>0&&time<=segments[left-1].stop;
+}
+
+function showPlateReading(plot,model,sample){
   const tip=$('.plate-chart-tip',plot),cross=$('.plate-chart-cross',plot);
   cross.setAttribute('visibility',sample?'visible':'hidden');
-  tip.hidden=!sample&&!gap;
-  if(tip.hidden)return;
-  let x,y,content;
-  if(sample){
-    const {time,value}=sample,{rule}=model;
-    const difference=value<rule.min?rule.min-value:value-rule.max;
-    const status=difference>0?fmtC(difference)+(value<rule.min?' abaixo do limite':' acima do limite'):'Dentro da faixa';
-    x=model.x(time);y=model.y(value);
-    const line=$('line',cross),point=$('circle',cross);
-    line.setAttribute('x1',x);line.setAttribute('x2',x);
-    point.setAttribute('cx',x);point.setAttribute('cy',y);
-    cross.classList.toggle('plate-bad',difference>0);
-    content=`<b>${fmtDT(time)}</b><span>Temperatura: ${fmtC(value)}</span><span class="plate-${difference>0?'bad':'ok'}">${status}</span>`;
-  }else{
-    x=model.x((gap.start+gap.stop)/2);y=PLATE_PLOT.top+48;
-    content=`<b>Intervalo sem leituras</b><span>${fmtDT(gap.start)} a ${fmtDT(gap.stop)}</span>`;
-  }
+  tip.hidden=!sample;
+  if(!sample)return;
+  const {time,value}=sample,{rule}=model;
+  const difference=value<rule.min?rule.min-value:value-rule.max;
+  const status=difference>0?fmtC(difference)+(value<rule.min?' abaixo do limite':' acima do limite'):'Dentro da faixa';
+  const x=model.x(time),y=model.y(value);
+  const line=$('line',cross),point=$('circle',cross);
+  line.setAttribute('x1',x);line.setAttribute('x2',x);
+  point.setAttribute('cx',x);point.setAttribute('cy',y);
+  cross.classList.toggle('plate-bad',difference>0);
+  const content=`<b>${fmtDT(time)}</b><span>Temperatura: ${fmtC(value)}</span><span class="plate-${difference>0?'bad':'ok'}">${status}</span>`;
   tip.style.setProperty('--tip-x',x/PLATE_PLOT.width*100+'%');
   tip.style.setProperty('--tip-y',y/PLATE_PLOT.height*100+'%');
   if(tip.innerHTML!==content)tip.innerHTML=content;
@@ -1550,12 +1547,13 @@ function pointPlateChart(event){
   const px=(event.clientX-rect.left)*width/rect.width;
   if(px<left||px>right){showPlateReading(plot,model);return;}
   const time=model.from+(model.to-model.from)*(px-left)/(right-left);
-  const gap=model.gaps.find(g=>time>g.start&&time<g.stop&&
-    Math.min(model.x(time)-model.x(g.start),model.x(g.stop)-model.x(time))>5);
-  const index=gap||!model.samples.length?-1:nearestPlateReading(model.samples,time);
+  const index=model.samples.length?nearestPlateReading(model.samples,time):-1;
   const sample=model.samples[index];
-  model.index=index;
-  showPlateReading(plot,model,sample&&Math.abs(time-sample.time)<=CFG.gap?sample:null,gap);
+  const trace=plateHasTrace(model.segments,time);
+  const atReading=sample&&Math.abs(px-model.x(sample.time))<=4;
+  const visible=sample&&(atReading||trace);
+  model.index=visible?index:-1;
+  showPlateReading(plot,model,visible?sample:null);
 }
 $('#plateCharts').addEventListener('pointermove',pointPlateChart);
 $('#plateCharts').addEventListener('pointerdown',pointPlateChart);
@@ -1602,7 +1600,7 @@ function renderPlateRows(){
   $('#plateTable tbody').innerHTML=rows.map(r=>`<tr data-plate="${esc(r.id)}"><td class="plate-select"><button type="button" data-view-plate aria-label="Ver gráficos de ${esc(r.plate)}" aria-controls="plateCharts" aria-pressed="false">Ver</button></td><th scope="row">${esc(r.plate)}</th>${
     r.probes.map(p=>`<td>${plateEffectiveness(p.eff)}</td><td>${plateTemp(p.min,p.rule)}</td><td>${plateTemp(p.max,p.rule)}</td>`).join('')}</tr>`).join('')
     ||`<tr><td colspan="8">${legacy?'Reimporte o Histórico de Veículo original para calcular os indicadores a partir das leituras de cada sonda.':'Nenhuma placa com leitura no recorte selecionado.'}</td></tr>`;
-  $('#plateFoot').textContent=rows.length+' placa(s) · Efetividade = % do tempo monitorado dentro da faixa. Intervalos acima de '+CFG.gap+' min ficam fora do cálculo. Efetividade em verde na meta, âmbar até 10 p.p. abaixo e vermelho nas demais. Temperaturas em vermelho estão fora da faixa.';
+  $('#plateFoot').textContent=rows.length+' placa(s) · Efetividade = % do tempo monitorado dentro da faixa. Efetividade em verde na meta, âmbar até 10 p.p. abaixo e vermelho nas demais. Temperaturas em vermelho estão fora da faixa.';
   $('#btnCsv').disabled=!rows.length;
   document.querySelectorAll('#plateTable thead button').forEach(b=>{
     const current=b.dataset.sort===PLATE_VIEW.sort;
