@@ -545,7 +545,7 @@ s.onchange=function(){ap(s.value);try{localStorage.setItem(K,s.value)}catch(e){}
 <section class="card filters" id="filters">
   <div class="fld"><label>Período</label>
     <select id="fPType"><option value="dia">Dia</option><option value="semana">Semana</option><option value="quinzena">Quinzena</option><option value="mes">Mês</option><option value="custom">Personalizado</option></select></div>
-  <div class="fld" id="fDayBox" style="display:none"><label for="fDay">Data</label><input type="date" id="fDay" lang="pt-BR" required></div>
+  <div class="fld" id="fCalendarBox" style="display:none"><label for="fCalendar">Calendário</label><input type="date" id="fCalendar" lang="pt-BR" required></div>
   <div class="fld" id="fPSelBox"><label>Qual</label><select id="fPSel" style="min-width:250px"></select></div>
   <div id="fCustom" style="display:none;gap:12px"><div class="fld"><label>De</label><input type="date" id="fFrom"></div><div class="fld"><label>Até</label><input type="date" id="fTo"></div></div>
   <div class="fld ms" id="msTur"><label>Turno</label></div>
@@ -953,6 +953,7 @@ const dayFromIso=s=>Math.round((new Date(s+'T00:00:00')-DAY0)/864e5);
 /* ============ períodos (dia / semana / quinzena / mês) ============ */
 const MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DSEM=['dom','seg','ter','qua','qui','sex','sáb'];
+const CALENDAR_TYPES=new Set(['dia','semana','mes']);
 function periodOptions(type){
   const out=[],seen=new Set();
   for(let d=0;d<NDAYS;d++){
@@ -1144,14 +1145,15 @@ function initFilters(){
   $('#fPType').onchange=e=>{ST.ptype=e.target.value;
     if(ST.ptype!=='custom'){const min={dia:1,semana:7,quinzena:14,mes:28}[ST.ptype],o=periodOptions(ST.ptype),f=o.find(x=>x.to-x.from+1>=min)||o[0];ST.pid=f.id;ST.from=f.from;ST.to=f.to;}
     refresh();};
-  $('#fDay').onchange=e=>{
-    const input=e.target, day=dayFromIso(input.value);
-    if(!input.validity.valid||!Number.isInteger(day)||day<0||day>=NDAYS){
+  $('#fCalendar').onchange=e=>{
+    if(!CALENDAR_TYPES.has(ST.ptype))return;
+    const input=e.target,day=dayFromIso(input.value);
+    const period=input.validity.valid&&periodOptions(ST.ptype).find(p=>p.from<=day&&day<=p.to);
+    if(!period){
       input.value=iso(ST.from);
       return;
     }
-    ST.from=ST.to=day;
-    ST.pid=String(NDAYS-1-day);
+    ST.from=period.from;ST.to=period.to;ST.pid=period.id;
     refresh();
   };
   $('#fPSel').onchange=e=>{const o=periodOptions(ST.ptype).find(x=>x.id===e.target.value);if(o){ST.pid=o.id;ST.from=o.from;ST.to=o.to;}refresh();};
@@ -1180,14 +1182,16 @@ function syncFilters(){
   document.querySelectorAll('#chipsEq .chip').forEach(c=>c.classList.toggle('on',ST.eq.has(c.dataset.e)));
   document.querySelectorAll('#segGroup button').forEach(b=>b.classList.toggle('on',b.dataset.v===ST.group));
   $('#fPType').value=ST.ptype;
-  const isC=ST.ptype==='custom',isDay=ST.ptype==='dia';
-  $('#fDayBox').style.display=isDay?'flex':'none';
-  $('#fPSelBox').style.display=isC||isDay?'none':'';
+  const isC=ST.ptype==='custom', hasCalendar=CALENDAR_TYPES.has(ST.ptype);
+  $('#fCalendarBox').style.display=hasCalendar?'flex':'none';
+  $('#fPSelBox').style.display=isC?'none':'';
   $('#fCustom').style.display=isC?'flex':'none';
-  if(isDay){
-    const input=$('#fDay');
-    input.min=iso(0);input.max=iso(NDAYS-1);input.value=iso(ST.from);
-  }else if(isC){$('#fFrom').value=iso(ST.from);$('#fTo').value=iso(ST.to);}
+  if(hasCalendar){
+    const input=$('#fCalendar'),selected=dayFromIso(input.value);
+    input.min=iso(0);input.max=iso(NDAYS-1);
+    if(!(ST.from<=selected&&selected<=ST.to))input.value=iso(ST.from);
+  }
+  if(isC){$('#fFrom').value=iso(ST.from);$('#fTo').value=iso(ST.to);}
   else{$('#fPSel').innerHTML=periodOptions(ST.ptype).map(x=>`<option value="${x.id}">${x.label}</option>`).join('');$('#fPSel').value=ST.pid;}
   document.querySelectorAll('#segTipo button').forEach(b=>b.classList.toggle('on',b.dataset.v===ST.tipo));
   document.querySelectorAll('#segMeta button').forEach(b=>b.classList.toggle('on',b.dataset.v===ST.metaView));
