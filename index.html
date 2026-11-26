@@ -596,7 +596,7 @@ s.onchange=function(){ap(s.value);try{localStorage.setItem(K,s.value)}catch(e){}
   <h2 class="plate-title" id="plateTitle">Temperatura por placa</h2>
   <div class="plate-tools">
     <strong id="platePeriod"></strong>
-    <input id="plateQuery" type="search" placeholder="Buscar placa" aria-label="Buscar placa">
+    <input id="plateQuery" type="search" placeholder="Buscar placa ou nome" aria-label="Buscar placa ou nome">
   </div>
   <div id="plateDetail" class="plate-detail" aria-live="polite"></div>
   <div id="plateCharts" class="plate-charts" aria-label="Curvas da placa selecionada" hidden></div>
@@ -606,6 +606,7 @@ s.onchange=function(){ap(s.value);try{localStorage.setItem(K,s.value)}catch(e){}
         <tr>
           <th scope="col" class="plate-select" rowspan="2">Ver</th>
           <th scope="col" rowspan="2" aria-sort="ascending"><button type="button" data-sort="plate">Placa <span aria-hidden="true">↑</span></button></th>
+          <th scope="col" rowspan="2"><button type="button" data-sort="name">Nome do veículo <span aria-hidden="true">↕</span></button></th>
           <th scope="colgroup" colspan="3" id="plateCold">Temperatura 1 · Resfriado</th>
           <th scope="colgroup" colspan="3" id="plateFrozen">Temperatura 2 · Congelado</th>
         </tr>
@@ -1368,7 +1369,7 @@ function renderPlateReport(){
         const speeds=rawSpeeds?[rawSpeeds[i]]:example?.speeds[i];
         return {...plateProbeStats(series,cc[comp]),speeds};
       });
-      if(probes.some(p=>Number.isFinite(p.min)||Number.isFinite(p.eff)))PLATE_VIEW.rows.push({id:v.id,plate:v.placa,probes});
+      if(probes.some(p=>Number.isFinite(p.min)||Number.isFinite(p.eff)))PLATE_VIEW.rows.push({id:v.id,plate:v.placa,name:v.nomeVeiculo||'',probes});
     }
   }
   const date=new Intl.DateTimeFormat('pt-BR');
@@ -1379,12 +1380,17 @@ function renderPlateReport(){
 }
 
 function plateRows(){
-  const query=plateOf($('#plateQuery').value);
+  const query=plateOf(nrm($('#plateQuery').value));
   const {sort,direction}=PLATE_VIEW;
   const [probe,metric]=sort.split(',');
-  return PLATE_VIEW.rows.filter(r=>!query||plateOf(r.plate).includes(query)).sort((a,b)=>{
+  return PLATE_VIEW.rows.filter(r=>!query||plateOf(r.plate).includes(query)||plateOf(nrm(r.name)).includes(query)).sort((a,b)=>{
     const label=a.plate.localeCompare(b.plate,'pt-BR');
     if(sort==='plate')return direction*label;
+    if(sort==='name'){
+      if(!a.name)return b.name?1:label;
+      if(!b.name)return -1;
+      return direction*a.name.localeCompare(b.name,'pt-BR',{numeric:true,sensitivity:'base'})||label;
+    }
     const x=a.probes[probe][metric], y=b.probes[probe][metric];
     if(!Number.isFinite(x))return Number.isFinite(y)?1:label;
     if(!Number.isFinite(y))return -1;
@@ -1622,9 +1628,9 @@ function updatePlateSelection(rows){
 function renderPlateRows(){
   const rows=plateRows();
   const legacy=DATA.meta&&!DATA.plateTemps;
-  $('#plateTable tbody').innerHTML=rows.map(r=>`<tr data-plate="${esc(r.id)}"><td class="plate-select"><button type="button" data-view-plate aria-label="Ver gráficos de ${esc(r.plate)}" aria-controls="plateCharts" aria-pressed="false">Ver</button></td><th scope="row">${esc(r.plate)}</th>${
+  $('#plateTable tbody').innerHTML=rows.map(r=>`<tr data-plate="${esc(r.id)}"><td class="plate-select"><button type="button" data-view-plate aria-label="Ver gráficos de ${esc(r.plate)}" aria-controls="plateCharts" aria-pressed="false">Ver</button></td><th scope="row">${esc(r.plate)}</th><td>${esc(r.name||'—')}</td>${
     r.probes.map(p=>`<td>${plateEffectiveness(p.eff)}</td><td>${plateTemp(p.min,p.rule)}</td><td>${plateTemp(p.max,p.rule)}</td>`).join('')}</tr>`).join('')
-    ||`<tr><td colspan="8">${legacy?'Reimporte o Histórico de Veículo original para calcular os indicadores a partir das leituras de cada sonda.':'Nenhuma placa com leitura no recorte selecionado.'}</td></tr>`;
+    ||`<tr><td colspan="9">${legacy?'Reimporte o Histórico de Veículo original para calcular os indicadores a partir das leituras de cada sonda.':'Nenhuma placa com leitura no recorte selecionado.'}</td></tr>`;
   $('#plateFoot').textContent=rows.length+' placa(s) · Efetividade = % do tempo monitorado dentro da faixa. Efetividade em verde na meta, âmbar até 10 p.p. abaixo e vermelho nas demais. Temperaturas em vermelho estão fora da faixa.';
   $('#btnCsv').disabled=!rows.length;
   document.querySelectorAll('#plateTable thead button').forEach(b=>{
@@ -1661,9 +1667,10 @@ $('#plateTable').onclick=e=>{
 
 function exportPlateCsv(){
   const number=n=>Number.isFinite(n)?fmtR(Math.round(n*10)/10):'';
-  const lines=[['Placa','Efetividade resfriado (%)','Mínima resfriado (°C)','Máxima resfriado (°C)',
+  const csvName=name=>name?'"'+(/^[=+\-@＝＋－＠]/.test(name)?"'":'')+name.replaceAll('"','""')+'"':'';
+  const lines=[['Placa','Nome do veículo','Efetividade resfriado (%)','Mínima resfriado (°C)','Máxima resfriado (°C)',
     'Efetividade congelado (%)','Mínima congelado (°C)','Máxima congelado (°C)']];
-  for(const r of plateRows())lines.push([r.plate,...r.probes.flatMap(p=>[number(p.eff),number(p.min),number(p.max)])]);
+  for(const r of plateRows())lines.push([r.plate,csvName(r.name),...r.probes.flatMap(p=>[number(p.eff),number(p.min),number(p.max)])]);
   const blob=new Blob(['\ufeff'+lines.map(row=>row.join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -2170,12 +2177,20 @@ function tsOf(v){ // minutos de "relógio de parede" (a hora lida na planilha, s
 }
 
 /* ---- leitura e reconhecimento dos arquivos ---- */
+function vehicleNameColumn(idx){
+  return idx['nome do veiculo']??idx['nome veiculo']??idx['apelido do veiculo']??
+    idx['prefixo do veiculo']??idx['prefixo']??idx['apelido']??(idx['placa']!=null?idx['veiculo']:undefined);
+}
+function vehicleName(value,plate){
+  const name=String(value??'').trim(),normalized=plateOf(name);
+  return normalized&&normalized!==plate?name:'';
+}
 function classify(name,rows){
   for(let r=0;r<Math.min(rows.length,30);r++){
     const idx={};rows[r].forEach((c,i)=>{const k=nrm(c);if(k&&!(k in idx))idx[k]=i;});
     if('emissao/envio' in idx&&'temperatura 1' in idx)return{name,kind:'hist',hi:r,idx,rows};
     if('placa' in idx&&'unidade organizacional (proprietaria)' in idx)return{name,kind:'veic',hi:r,idx,rows};
-    if('placa' in idx&&('frota' in idx||'cliente' in idx||'unidade' in idx))return{name,kind:'cad',hi:r,idx,rows};
+    if('placa' in idx&&('frota' in idx||'cliente' in idx||'unidade' in idx||vehicleNameColumn(idx)!=null))return{name,kind:'cad',hi:r,idx,rows};
     if('apelido' in idx&&'area' in idx)return{name,kind:'uni',hi:r,idx,rows};
   }
   return{name,kind:null,rows};
@@ -2202,20 +2217,23 @@ function build(files,opt){
   for(const f of uf){const I=f.idx;for(let r=f.hi+1;r<f.rows.length;r++){const R=f.rows[r];
     const nome=String(R[I['apelido']]||R[I['nome']]||'').trim();if(!nome)continue;
     const m=String(R[I['area']]||'').match(/-\s*([A-Za-z]{2})\s*$/);uInfo[nrm(nome)]={nome,uf:m?m[1].toUpperCase():''};}}
-  const vUni={},vFro={},vCli={};
-  for(const f of vf){const I=f.idx,cU=I['unidade organizacional (proprietaria)']??I['unidade'],cF=I['frota'],cC=I['cliente'];
+  const vUni={},vFro={},vCli={},vNames=new Map(),historicNames=new Map();
+  for(const f of vf){const I=f.idx,cU=I['unidade organizacional (proprietaria)']??I['unidade'],cF=I['frota'],cC=I['cliente'],cName=vehicleNameColumn(I);
     for(let r=f.hi+1;r<f.rows.length;r++){const R=f.rows[r],p=plateOf(R[I['placa']]);if(!p)continue;
       const g=c=>c==null?'':String(R[c]||'').trim();
-      if(g(cU))vUni[p]=g(cU);if(g(cF))vFro[p]=g(cF);if(g(cC))vCli[p]=g(cC);}}
+      if(g(cU))vUni[p]=g(cU);if(g(cF))vFro[p]=g(cF);if(g(cC))vCli[p]=g(cC);
+      const name=vehicleName(R[cName],p);if(name)vNames.set(p,name);}}
   /* linhas do histórico por placa */
   const byPlate=new Map(),pCount=[0,0,0,0,0],seen=new Map();let dup=0,nRows=0,nMdvr=0,minTs=Infinity,maxTs=-Infinity;
   hist.forEach((f,fi)=>{const I=f.idx,c=k=>I[k],cT=c('emissao/envio'),cInf=c('informacao'),cIg=c('ignicao'),cEnt=c('entradas'),cDrv=c('motorista'),
     cEq=c('tipo do equipamento'),cSp=c('velocidade (gps)'),cLoc=c('ponto referencia'),cPl=c('placa')??c('veiculo');
-    const cTp=[1,2,3,4,5].map(n=>c('temperatura '+n));
+    const cTp=[1,2,3,4,5].map(n=>c('temperatura '+n)),cName=vehicleNameColumn(I);
     for(let r=f.hi+1;r<f.rows.length;r++){const R=f.rows[r],ts=tsOf(R[cT]);if(ts===null)continue;
       const eq=String(cEq!=null?R[cEq]:'').trim();if(/mdvr/i.test(eq)){nMdvr++;continue;}
       nRows++;if(ts<minTs)minTs=ts;if(ts>maxTs)maxTs=ts;
       const pl=plateOf(cPl!=null?R[cPl]:'')||('ARQ'+(fi+1));
+      const name=vehicleName(R[cName],pl),known=historicNames.get(pl);
+      if(name&&(!known||ts>=known.ts))historicNames.set(pl,{name,ts});
       const temps=cTp.map((ci,p)=>{if(ci==null)return NaN;const x=numOf(R[ci]);if(!isFinite(x)||x<=-60||x>=100)return NaN;pCount[p]++;return x;});
       const infO=String(cInf!=null?R[cInf]:'').replace(/^macro:\s*/i,'').trim(),inf=nrm(infO),ent=nrm(cEnt!=null?R[cEnt]:'');
       let desc=null,ign=null;const sens=[],ON=/^(aberto|aberta|acionado)$/;
@@ -2325,7 +2343,7 @@ function build(files,opt){
     const cn=vCli[vi.pl]||'',ck=nrm(cn)||'_',defN=opt.nome||'Cliente';let cl=cliMap.get(ck);
     if(!cl){cl={id:ck==='_'?'IMP1':'C'+cliMap.size,nome:cn||defN,carga:opt.carga||'',min:mn,max:mx,set:(mn+mx)/2,tol:Number(opt.tol)||0,degelo:0};cliMap.set(ck,cl);}
     cliOf[vi.pl]=cl.id;
-    veic.push({id:vi.pl,placa:vi.pl,unidade:u.id,frota:fr.id,equip:vi.eq,bau:vi.fonte==='bau',sondas:NPm,clientes:[cl.id]});
+    veic.push({id:vi.pl,placa:vi.pl,nomeVeiculo:vNames.get(vi.pl)||historicNames.get(vi.pl)?.name||'',unidade:u.id,frota:fr.id,equip:vi.eq,bau:vi.fonte==='bau',sondas:NPm,clientes:[cl.id]});
   }
   for(const t of trips)t.cli=cliOf[t.veic];
   const cliente=[...cliMap.values()];
@@ -2474,10 +2492,10 @@ function initImport(){
   $('#impNeed').innerHTML=`<table class="tbl" style="width:100%"><tr><th>Arquivo</th><th>Colunas usadas</th><th>Para quê</th></tr>
    <tr><td><b>Histórico de Veículo</b> (obrigatório)</td><td>Emissão/envio · Placa · Temperatura 1 a 5 · Informação · Ignição · Entradas · Motorista · Tipo do equipamento · Velocidade (GPS) · Ponto referência</td><td>Curva, efetividade, ocorrências, aberturas (Sensor de Baú Traseiro ou Início/Fim de Descarga), motoristas, regras de risco</td></tr>
    <tr><td><b>Veículo</b> (opcional)</td><td>Placa · Unidade organizacional (proprietária)</td><td>Filtro e ranking por unidade</td></tr>
-   <tr><td><b>Cadastro</b> (opcional)</td><td>Placa · Frota · Cliente · Unidade (qualquer combinação)</td><td>Filtro por frota, vários clientes no mesmo relatório (cada um com sua faixa) e unidade, se não houver arquivo Veículo</td></tr>
+   <tr><td><b>Cadastro</b> (opcional)</td><td>Placa · Nome do veículo · Frota · Cliente · Unidade</td><td>Nome do veículo e filtro por frota, vários clientes no mesmo relatório (cada um com sua faixa) e unidade, se não houver arquivo Veículo</td></tr>
    <tr><td><b>Unidade Organizacional</b> (opcional)</td><td>Apelido · Área (termina com “- UF”)</td><td>Filtro e ranking por região</td></tr></table>
    <p>O que não vier nos arquivos simplesmente não aparece no relatório. Dá para enviar vários históricos do mesmo veículo (semanas seguidas) e de vários veículos ao mesmo tempo; linhas repetidas entre arquivos são descartadas. A faixa de temperatura é informada nesta tela.</p>`;
-  const tb=document.createElement('button');tb.className='btn';tb.textContent='Baixar modelo de cadastro (.csv)';tb.style.marginTop='8px';tb.onclick=()=>{const t='\ufeffPlaca;Frota;Cliente;Unidade\r\nABC1D23;Frota SP;Cliente Alfa;Matriz São Paulo\r\nDEF2G34;Frota Interior;Cliente Beta;Filial Campinas\r\n',a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download='modelo_cadastro_gr.csv';a.click();};$('#impNeed').appendChild(tb);
+  const tb=document.createElement('button');tb.className='btn';tb.textContent='Baixar modelo de cadastro (.csv)';tb.style.marginTop='8px';tb.onclick=()=>{const t='\ufeffPlaca;Nome do veículo;Frota;Cliente;Unidade\r\nABC1D23;CAM118;Frota SP;Cliente Alfa;Matriz São Paulo\r\nDEF2G34;CAM255;Frota Interior;Cliente Beta;Filial Campinas\r\n',a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/csv;charset=utf-8'}));a.download='modelo_cadastro_gr.csv';a.click();};$('#impNeed').appendChild(tb);
   $('#btnImp').onclick=()=>{IMP.files=[];IMP.built=null;$('#impModal').classList.add('open');impRender();};
   $('#impClose').onclick=()=>$('#impModal').classList.remove('open');
   $('#impModal').onclick=e=>{if(e.target.id==='impModal')$('#impModal').classList.remove('open');};
