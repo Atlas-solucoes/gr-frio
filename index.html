@@ -1535,7 +1535,7 @@ function showPlateReading(plot,model,sample,gap){
     content=`<b>${fmtDT(time)}</b><span>Temperatura: ${fmtC(value)}</span><span class="plate-${difference>0?'bad':'ok'}">${status}</span>`;
   }else{
     x=model.x((gap.start+gap.stop)/2);y=PLATE_PLOT.top+48;
-    content=`<b>Sem leituras neste intervalo</b><span>${fmtDT(gap.start)} a ${fmtDT(gap.stop)}</span>`;
+    content=`<b>Intervalo sem leituras</b><span>${fmtDT(gap.start)} a ${fmtDT(gap.stop)}</span>`;
   }
   tip.style.setProperty('--tip-x',x/PLATE_PLOT.width*100+'%');
   tip.style.setProperty('--tip-y',y/PLATE_PLOT.height*100+'%');
