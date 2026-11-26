@@ -1595,9 +1595,9 @@ function updatePlateSelection(rows){
   const row=rows.find(r=>r.id===PLATE_VIEW.selected);
   $('#plateDetail').innerHTML=row
     ? `<span><small>Placa em foco</small><strong>${esc(row.plate)}</strong></span>`
-    : rows.length?'Clique em “Ver” ao lado da placa para abrir os gráficos.':'';
+    : '';
   PLATE_CHARTS.clear();
-  $('#plateDetail').hidden=!rows.length;
+  $('#plateDetail').hidden=!row;
   $('#plateCharts').hidden=!row;
   $('#plateCharts').innerHTML=row?row.probes.map((p,i)=>renderPlateChart(p,PLATE_COMP[i],row.plate)).join(''):'';
   document.querySelectorAll('#plateTable tbody tr[data-plate]').forEach(tr=>{
@@ -1605,6 +1605,7 @@ function updatePlateSelection(rows){
     tr.toggleAttribute('data-selected',selected);
     const button=tr.querySelector('[data-view-plate]');
     button.setAttribute('aria-pressed',String(selected));
+    button.setAttribute('aria-label',selected?'Em foco · Ocultar gráficos de '+tr.querySelector('th').textContent:'Ver gráficos de '+tr.querySelector('th').textContent);
     button.textContent=selected?'Em foco':'Ver';
   });
 }
@@ -1637,8 +1638,10 @@ $('#plateTable').onclick=e=>{
   }
   const row=e.target.closest('tr[data-plate]');
   if(row){
-    PLATE_VIEW.selected=row.dataset.plate;
+    const close=e.target.closest('[data-view-plate]')&&PLATE_VIEW.selected===row.dataset.plate;
+    PLATE_VIEW.selected=close?null:row.dataset.plate;
     updatePlateSelection(plateRows());
+    if(close)return;
     const detail=$('#plateDetail');
     const filters=$('#filters'), sticky=getComputedStyle(filters).position==='sticky';
     if(detail.getBoundingClientRect().top<(sticky?filters.getBoundingClientRect().bottom:0)){
