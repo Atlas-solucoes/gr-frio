@@ -573,8 +573,8 @@ s.onchange=function(){ap(s.value);try{localStorage.setItem(K,s.value)}catch(e){}
     <div class="calendar-controls">
       <input type="date" id="fCalendar" lang="pt-BR" required>
       <div class="calendar-step" id="fCalendarStep" hidden>
-        <button type="button" class="btn" id="fDayNext" aria-label="Próximo dia" title="Próximo dia">▲</button>
-        <button type="button" class="btn" id="fDayPrev" aria-label="Dia anterior" title="Dia anterior">▼</button>
+        <button type="button" class="btn" id="fPeriodNext" aria-label="Próximo dia" title="Próximo dia">▲</button>
+        <button type="button" class="btn" id="fPeriodPrev" aria-label="Dia anterior" title="Dia anterior">▼</button>
       </div>
     </div>
   </div>
@@ -1087,8 +1087,18 @@ function selectedCalendarDay(){
   const day=dayFromIso($('#fCalendar').value);
   return ST.from<=day&&day<=ST.to?day:ST.from;
 }
-function moveCalendarDay(delta){
-  if(CALENDAR_TYPES.has(ST.ptype))pickCalendarDay(selectedCalendarDay()+delta);
+const CALENDAR_STEP_LABELS={
+  dia:['Dia anterior','Próximo dia'],
+  semana:['Semana anterior','Próxima semana'],
+  mes:['Mês anterior','Próximo mês']
+};
+function moveCalendarPeriod(delta){
+  if(!CALENDAR_TYPES.has(ST.ptype))return;
+  const periods=periodOptions(ST.ptype);
+  const index=periods.findIndex(period=>period.id===ST.pid);
+  if(index<0)return;
+  const target=periods[index-delta]; // opções ordenadas da mais recente à mais antiga
+  if(target)pickCalendarDay(target.from);
 }
 function initFilters(){
   drawers.push(makeMS('msTur',()=>TURNOS,ST.sh));
@@ -1107,8 +1117,8 @@ function initFilters(){
     const input=e.target;
     if(!input.validity.valid||!pickCalendarDay(dayFromIso(input.value)))input.value=iso(ST.from);
   };
-  $('#fDayNext').onclick=()=>moveCalendarDay(1);
-  $('#fDayPrev').onclick=()=>moveCalendarDay(-1);
+  $('#fPeriodNext').onclick=()=>moveCalendarPeriod(1);
+  $('#fPeriodPrev').onclick=()=>moveCalendarPeriod(-1);
   $('#fPSel').onchange=e=>{const o=periodOptions(ST.ptype).find(x=>x.id===e.target.value);if(o){ST.pid=o.id;ST.from=o.from;ST.to=o.to;}refresh();};
     $('#fFrom').onchange=e=>{ST.from=Math.max(0,Math.min(NDAYS-1,dayFromIso(e.target.value)));if(ST.from>ST.to)ST.to=ST.from;refresh();};
   $('#fTo').onchange=e=>{ST.to=Math.max(0,Math.min(NDAYS-1,dayFromIso(e.target.value)));if(ST.to<ST.from)ST.from=ST.to;refresh();};
@@ -1140,15 +1150,21 @@ function syncFilters(){
   $('#fCalendarStep').hidden=!hasCalendar;
   $('#fPSelBox').style.display=isC?'none':'';
   $('#fCustom').style.display=isC?'flex':'none';
+  const periods=isC?[]:periodOptions(ST.ptype);
   if(hasCalendar){
     const input=$('#fCalendar'),day=selectedCalendarDay();
     input.min=iso(0);input.max=iso(NDAYS-1);
     input.value=iso(day);
-    $('#fDayPrev').disabled=day<=0;
-    $('#fDayNext').disabled=day>=NDAYS-1;
+    const index=periods.findIndex(period=>period.id===ST.pid);
+    const [prevLabel,nextLabel]=CALENDAR_STEP_LABELS[ST.ptype];
+    const prev=$('#fPeriodPrev'),next=$('#fPeriodNext');
+    prev.disabled=index<0||index===periods.length-1;
+    next.disabled=index<=0;
+    prev.title=prevLabel;prev.setAttribute('aria-label',prevLabel);
+    next.title=nextLabel;next.setAttribute('aria-label',nextLabel);
   }
   if(isC){$('#fFrom').value=iso(ST.from);$('#fTo').value=iso(ST.to);}
-  else{$('#fPSel').innerHTML=periodOptions(ST.ptype).map(x=>`<option value="${x.id}">${x.label}</option>`).join('');$('#fPSel').value=ST.pid;}
+  else{$('#fPSel').innerHTML=periods.map(x=>`<option value="${x.id}">${x.label}</option>`).join('');$('#fPSel').value=ST.pid;}
   document.querySelectorAll('#segTipo button').forEach(b=>b.classList.toggle('on',b.dataset.v===ST.tipo));
   document.querySelectorAll('#segMeta button').forEach(b=>b.classList.toggle('on',b.dataset.v===ST.metaView));
   document.querySelectorAll('#segLvl button').forEach(b=>b.classList.toggle('on',b.dataset.v===ST.lvl));
