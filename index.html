@@ -1079,11 +1079,16 @@ function pickCalendarDay(day){
   const period=periodOptions(ST.ptype).find(p=>p.from<=day&&day<=p.to);
   if(!period)return false;
   ST.from=period.from;ST.to=period.to;ST.pid=period.id;
+  $('#fCalendar').value=iso(day);
   refresh();
   return true;
 }
+function selectedCalendarDay(){
+  const day=dayFromIso($('#fCalendar').value);
+  return ST.from<=day&&day<=ST.to?day:ST.from;
+}
 function moveCalendarDay(delta){
-  if(ST.ptype==='dia')pickCalendarDay(ST.from+delta);
+  if(CALENDAR_TYPES.has(ST.ptype))pickCalendarDay(selectedCalendarDay()+delta);
 }
 function initFilters(){
   drawers.push(makeMS('msTur',()=>TURNOS,ST.sh));
@@ -1132,15 +1137,15 @@ function syncFilters(){
   $('#fPType').value=ST.ptype;
   const isC=ST.ptype==='custom', hasCalendar=CALENDAR_TYPES.has(ST.ptype);
   $('#fCalendarBox').style.display=hasCalendar?'flex':'none';
-  $('#fCalendarStep').hidden=ST.ptype!=='dia';
-  $('#fDayPrev').disabled=ST.from<=0;
-  $('#fDayNext').disabled=ST.to>=NDAYS-1;
+  $('#fCalendarStep').hidden=!hasCalendar;
   $('#fPSelBox').style.display=isC?'none':'';
   $('#fCustom').style.display=isC?'flex':'none';
   if(hasCalendar){
-    const input=$('#fCalendar'),selected=dayFromIso(input.value);
+    const input=$('#fCalendar'),day=selectedCalendarDay();
     input.min=iso(0);input.max=iso(NDAYS-1);
-    if(!(ST.from<=selected&&selected<=ST.to))input.value=iso(ST.from);
+    input.value=iso(day);
+    $('#fDayPrev').disabled=day<=0;
+    $('#fDayNext').disabled=day>=NDAYS-1;
   }
   if(isC){$('#fFrom').value=iso(ST.from);$('#fTo').value=iso(ST.to);}
   else{$('#fPSel').innerHTML=periodOptions(ST.ptype).map(x=>`<option value="${x.id}">${x.label}</option>`).join('');$('#fPSel').value=ST.pid;}
